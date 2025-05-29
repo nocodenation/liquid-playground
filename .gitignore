@@ -1,0 +1,16 @@
+# Ignore everything
+*
+
+# But not these files...
+!.gitignore
+!build.sh
+!docker-compose.yml
+!Dockerfile
+!LICENSE
+!NOTICE
+!README.md
+!start.sh
+!stop.sh
+
+# ...and not these directories
+!python_extensions/
