@@ -1,4 +1,4 @@
-FROM docker.env.liquidvu.com/liquid-nifi:master-2.2.0-latest-ci-python
+FROM apache/nifi:2.4.0
 
 USER root:root
 RUN apt-get --allow-releaseinfo-change update

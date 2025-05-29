@@ -21,7 +21,7 @@ docker compose down
 docker image rm nocodenation/liquid-playground:latest
 
 # Build the Docker image using the temporary Dockerfile
-docker build -t nocodenation/liquid-playground:latest -f Dockerfile.tmp .
+docker build -t nocodenation/liquid-playground:latest -f Dockerfile.tmp --platform linux/amd64 .
 
 # Clean up the temporary Dockerfile
 rm Dockerfile.tmp
