@@ -64,7 +64,7 @@ Once the container is running, you can access NiFi at:
 https://localhost:8443/nifi
 ```
 
-Use the username and password displayed by the start script (in the format "Username: value" and "Password: value") to log in.
+Use the username and password displayed by the start script to log in.
 
 ## Advanced Usage
 
