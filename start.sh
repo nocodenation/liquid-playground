@@ -60,7 +60,7 @@ while true; do
     echo "Use these credentials to access NiFi: https://localhost:8443/nifi"
 
     # Clean up the temporary docker-compose file
-#    rm docker-compose.tmp.yml
+    rm docker-compose.tmp.yml
 
     break
   fi
