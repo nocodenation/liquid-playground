@@ -43,7 +43,7 @@ This script will:
 You can also specify paths to Python processor directories to be mounted in the container:
 
 ```bash
-./start.sh /path/to/processor1 /path/to/processor2/
+./start.sh /path/to/processor1/folder /path/to/processor2/folder/ /path/to/processor3/file.py
 ```
 
 This will mount each specified directory inside the container's `/opt/nifi/nifi-current/python_extensions/` folder, making the processors available to NiFi.
