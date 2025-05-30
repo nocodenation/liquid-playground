@@ -4,6 +4,6 @@ services:
     container_name: liquid-playground
     platform: linux/amd64
     volumes:
-      - ./python_extensions:/opt/nifi/nifi-current/python_extensions:r
+      - ./python_extensions:/opt/nifi/nifi-current/python_extensions:z
     ports:
       - "8443:8443"

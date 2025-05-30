@@ -1,0 +1,2 @@
+docling>=2.34.0
+tesserocr>=2.8.0

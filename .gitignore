@@ -13,4 +13,5 @@
 !stop.sh
 
 # ...and not these directories
+!example/
 !python_extensions/

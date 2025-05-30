@@ -32,7 +32,7 @@ if [ ${#PYTHON_PROCESSOR_PATHS[@]} -gt 0 ]; then
     # Get the basename of the path to use as the mount point
     basename=$(basename "$path")
     # Insert the new volume mount after the existing one
-    sed -i "${VOLUMES_END}i\\      - ${path}:/opt/nifi/nifi-current/python_extensions/${basename}:r" docker-compose.tmp.yml
+    sed -i "${VOLUMES_END}i\\      - ${path}:/opt/nifi/nifi-current/python_extensions/${basename}:z" docker-compose.tmp.yml
   done
 fi
 
@@ -60,7 +60,7 @@ while true; do
     echo "Use these credentials to access NiFi: https://localhost:8443/nifi"
 
     # Clean up the temporary docker-compose file
-    rm docker-compose.tmp.yml
+#    rm docker-compose.tmp.yml
 
     break
   fi
