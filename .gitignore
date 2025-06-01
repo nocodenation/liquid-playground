@@ -11,6 +11,11 @@
 !README.md
 !start.sh
 !stop.sh
+!sftp.json
 
 # ...and not these directories
+!example/
+!sftp_files/
+!sftp_files/dummy.pdf
+!sftp_files/dummy.docx
 !python_extensions/
