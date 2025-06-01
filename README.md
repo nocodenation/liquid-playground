@@ -2,6 +2,45 @@
 
 A Docker-based environment for running Apache NiFi with Python extensions. This project provides a convenient way to experiment with NiFi and develop custom Python processors.
 
+## Table of Contents
+- [Prerequisites](#prerequisites-1)
+- [Basic Usage](#basic-usage-1)
+  - [Building the Image](#building-the-image-1)
+  - [Starting the Container](#starting-the-container-1)
+  - [Stopping the Container](#stopping-the-container-1)
+- [Accessing NiFi](#accessing-nifi-1)
+- [SFTP Integration](#sftp-integration-1)
+  - [Using the SFTP Server](#using-the-sftp-server-1)
+- [Practical Example Guide](#practical-example-guide-1)
+  - [Building the Image](#building-the-image-2)
+  - [Starting the Container](#starting-the-container-2)
+  - [Working with NiFi](#working-with-nifi-1)
+- [Advanced Usage](#advanced-usage-1)
+  - [Adding System Libraries](#adding-system-libraries-1)
+    - [System Libraries](#system-libraries-1)
+    - [Modifying the Dockerfile Directly](#modifying-the-dockerfile-directly-1)
+    - [Using a Different Base Image](#using-a-different-base-image-1)
+  - [Mapping Python Extensions](#mapping-python-extensions-1)
+    - [Using the Default python_extensions Folder](#using-the-default-python_extensions-folder-1)
+    - [Mounting an Existing Python Processors Folder](#mounting-an-existing-python-processors-folder-1)
+      - [Using the start.sh Script (Recommended)](#using-the-startsh-script-recommended-1)
+      - [Manually Modifying docker-compose.yml](#manually-modifying-docker-composeyml-1)
+    - [Multiple Python Extension Folders](#multiple-python-extension-folders-1)
+    - [Using Relative Paths](#using-relative-paths-1)
+  - [Using NiPyGen-Generated Processors](#using-nipygen-generated-processors-1)
+  - [Manual Container Management](#manual-container-management-1)
+    - [Building the Image Manually](#building-the-image-manually-1)
+    - [Starting the Container Manually](#starting-the-container-manually-1)
+    - [Checking Logs](#checking-logs-1)
+    - [Stopping the Container Manually](#stopping-the-container-manually-1)
+  - [Accessing the Container Shell](#accessing-the-container-shell-1)
+- [Troubleshooting](#troubleshooting-1)
+  - [NiFi Fails to Start](#nifi-fails-to-start-1)
+  - [Cannot Access NiFi Web UI](#cannot-access-nifi-web-ui-1)
+  - [Python Processor Issues](#python-processor-issues-1)
+- [Contributing](#contributing-1)
+- [License](#license-1)
+
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/)
@@ -65,6 +104,96 @@ https://localhost:8443/nifi
 ```
 
 Use the username and password displayed by the start script to log in.
+
+## SFTP Integration
+
+Liquid Playground includes an SFTP server that can be used to easily upload files for processing with NiFi. This is particularly useful for testing data ingestion workflows.
+
+### Using the SFTP Server
+
+From within NiFi, you can configure `GetSFTP` or `FetchSFTP` processors to fetch files using:
+- Hostname: sftp
+- Port: 22
+- Username: user
+- Password: password
+- Remote Path: /upload
+
+Any files placed in the local `./sftp_files` directory will be accessible to NiFi through the SFTP connection, making it easy to feed files into your data processing workflows.
+
+
+## Practical Example Guide
+
+This repository contains an example Python processor that can be used to test the Liquid Playground environment.
+
+It is located in the `example/ParseDocument` directory.
+
+> Note: This processor is not production ready and should not be used in a production environment.
+ 
+In this guide, we will show you how the Playground environment can be used to experiment with Python processors.
+
+### Building the Image
+
+The `ExampleProcessor` uses [Google's Tesseract OCR](https://github.com/tesseract-ocr/tesseract) Engine to extract text
+from PDF files. That means our NiFi image must have Tesseract OCR libraries installed.
+
+To build the Playground image with Tesseract installed, run the following command:
+
+```bash
+./build.sh tesseract-ocr tesseract-ocr-eng libtesseract-dev libleptonica-dev pkg-config
+```
+
+### Starting the Container
+Now when we have an image with necessary libraries installed, we can start the container with the processor:
+
+```bash
+./start.sh ./example/ParseDocument
+```
+
+Wait for the container to start. Your console output should look like this:
+
+```
+Stopping any existing container...
+Checking if the Docker image exists...
+Adding Python processor paths as volume mounts...
+Starting the container...
+[+] Running 3/3
+ ✔ Network liquid-playground_liquid-playground-network  Created                                                                                                          0.1s 
+ ✔ Container liquid-playground-sftp-1                   Started                                                                                                          0.3s 
+ ✔ Container liquid-playground                          Started                                                                                                          0.3s 
+Waiting for NiFi to start...
+Still waiting for NiFi to start...
+
+NiFi has started successfully!
+Extracting credentials...
+
+Username: bddec316-3c6f-4c1a-b601-91379f0e6572
+Password: 3egF2be993otE/xnGFUdR5bZq0AxKz0B
+
+Use these credentials to access NiFi: https://localhost:8443/nifi
+```
+
+### Working with NiFi
+
+Access nifi on URL provided in the console output. By default, it will be http://localhost:8443/nifi
+Enter Username and Password as provided in the console output.
+
+Add FetchSFTP Processor with the following settings:
+- Hostname: sftp
+- Username: user
+- Password: password
+- Remote File: dummy.pdf
+- Leave other fields with their default values
+
+Add ParseDocument Processor with the following settings:
+- Input Format: PDF
+- Infer Table Structure: False
+- Language: en
+
+Wait some time until NiFi installs processor dependencies and starts processing the file.
+
+> You can track dependencies installation progress in logs of the NiFi.
+> This can be done with the following command: `./logs.sh`
+> or with docker command: `docker compose logs -f`
 
 ## Advanced Usage
 
@@ -290,6 +419,14 @@ docker compose up -d
 ```
 
 #### Checking Logs
+
+Use simple command:
+
+```bash
+./logs.sh
+```
+
+or full command:
 
 ```bash
 docker compose logs -f

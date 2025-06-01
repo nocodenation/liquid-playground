@@ -7,3 +7,19 @@ services:
       - ./python_extensions:/opt/nifi/nifi-current/python_extensions:z
     ports:
       - "8443:8443"
+    networks:
+      - liquid-playground-network
+
+  sftp:
+    image: emberstack/sftp
+    container_name: sftp
+    volumes:
+      - ./sftp_files:/home/user/sftp:z
+      - ./sftp.json:/app/config/sftp.json:ro
+    ports:
+      - "4222:22"
+    networks:
+      - liquid-playground-network
+
+networks:
+  liquid-playground-network:
