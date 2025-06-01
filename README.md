@@ -187,7 +187,6 @@ Add FetchSFTP Processor with the following settings:
 Add ParseDocument Processor with the following settings:
 - Input Format: PDF
 - Infer Table Structure: False
-- Language: en
 
 Wait some time until NiFi installs processor dependencies and starts processing the file.
 
