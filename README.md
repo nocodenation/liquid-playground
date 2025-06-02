@@ -9,8 +9,8 @@ A Docker-based environment for running Apache NiFi with Python extensions. This 
   - [Starting the Container](#starting-the-container)
   - [Stopping the Container](#stopping-the-container)
 - [Accessing NiFi](#accessing-nifi)
-- [SFTP Integration](#sftp-integration)
-  - [Using the SFTP Server](#using-the-sftp-server)
+- [File Access](#file-access)
+  - [Using the Files Directory](#using-the-files-directory)
 - [Practical Example Guide](#practical-example-guide)
   - [Building the Image](#building-the-image-2)
   - [Starting the Container](#starting-the-container-2)
@@ -105,20 +105,16 @@ https://localhost:8443/nifi
 
 Use the username and password displayed by the start script to log in.
 
-## SFTP Integration
+## File Access
 
-Liquid Playground includes an SFTP server that can be used to easily upload files for processing with NiFi. This is particularly useful for testing data ingestion workflows.
+Liquid Playground includes a direct file mount that can be used to easily access files for processing with NiFi. This is particularly useful for testing data ingestion workflows.
 
-### Using the SFTP Server
+### Using the Files Directory
 
-From within NiFi, you can configure `GetSFTP` or `FetchSFTP` processors to fetch files using:
-- Hostname: sftp
-- Port: 22
-- Username: user
-- Password: password
-- Remote Path: /upload
+From within NiFi, you can configure `FetchFile` processors to fetch files using:
+- File to Fetch: /files/dummy.pdf
 
-Any files placed in the local `./sftp_files` directory will be accessible to NiFi through the SFTP connection, making it easy to feed files into your data processing workflows.
+Any files placed in the local `./files` directory will be directly accessible to NiFi through the mounted path at `/files`, making it easy to feed files into your data processing workflows.
 
 
 ## Practical Example Guide
@@ -157,8 +153,7 @@ Checking if the Docker image exists...
 Adding Python processor paths as volume mounts...
 Starting the container...
 [+] Running 3/3
- ✔ Network liquid-playground_liquid-playground-network  Created                                                                                                          0.1s 
- ✔ Container sftp                                       Started                                                                                                          0.3s 
+ ✔ Network liquid-playground_default                    Created
  ✔ Container liquid-playground                          Started                                                                                                          0.3s 
 Waiting for NiFi to start...
 Still waiting for NiFi to start...
@@ -177,11 +172,8 @@ Use these credentials to access NiFi: https://localhost:8443/nifi
 Access nifi on URL provided in the console output. By default, it will be http://localhost:8443/nifi
 Enter Username and Password as provided in the console output.
 
-Add FetchSFTP Processor with the following settings:
-- Hostname: sftp
-- Username: user
-- Password: password
-- Remote File: dummy.pdf
+Add FetchFile Processor with the following settings:
+- File to Fetch: /files/dummy.pdf
 - Leave other fields with their default values
 
 Add ParseDocument Processor with the following settings:
