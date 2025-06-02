@@ -11,7 +11,7 @@
 !README.md
 !start.sh
 !stop.sh
-!sftp.json
+!logs.sh
 
 # ...and not these directories
 !example/
