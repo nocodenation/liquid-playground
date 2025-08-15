@@ -21,26 +21,27 @@ cp docker-compose.yml docker-compose.tmp.yml
 if [ ${#PYTHON_PROCESSOR_PATHS[@]} -gt 0 ]; then
   echo "Adding Python processor paths as volume mounts..."
 
-  # Find the line number where the predefined volume mount ends
-  VOLUMES_END=$(grep -n "./python_extensions:" docker-compose.tmp.yml | cut -d: -f1)
-  VOLUMES_END=$((VOLUMES_END + 1))
-
-  # Add each Python processor path as a volume mount
+  # Build the block of lines to insert after the python_extensions mount
+  INSERT_LINES=""
   for path in "${PYTHON_PROCESSOR_PATHS[@]}"; do
     # Remove trailing slash if present
     path=${path%/}
     # Get the basename of the path to use as the mount point
     basename=$(basename "$path")
-    # Insert the new volume mount after the existing one
-    if sed --version >/dev/null 2>&1; then
-      # GNU sed supports single-line i\ insertion
-      sed -i "${VOLUMES_END}i\\      - ${path}:/opt/nifi/nifi-current/python_extensions/${basename}:z" docker-compose.tmp.yml
-    else
-      # BSD sed (macOS) requires the inserted text on the next line after i\
-      sed -i '' "${VOLUMES_END}i\
-      - ${path}:/opt/nifi/nifi-current/python_extensions/${basename}:z" docker-compose.tmp.yml
-    fi
+    # Append the new volume mount line with proper indentation and newline
+    INSERT_LINES+="      - ${path}:/opt/nifi/nifi-current/python_extensions/${basename}:z\n"
   done
+
+  # Use awk to insert the constructed lines immediately after the python_extensions entry
+  awk -v insert="$INSERT_LINES" '
+    inserted==0 && $0 ~ /^[[:space:]]*- \.\/python_extensions:\/opt\/nifi\/nifi-current\/python_extensions:z$/ {
+      print;
+      printf "%s", insert;
+      inserted=1;
+      next
+    }
+    { print }
+  ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
 fi
 
 # Start the container with the temporary docker-compose file
