@@ -4,6 +4,10 @@ A Docker-based environment for running Apache NiFi with Python extensions. This 
 
 ## Table of Contents
 - [Prerequisites](#prerequisites)
+- [Quick Guide](#quick-guide)
+  - [Building the Image](#building-the-image-2)
+  - [Starting the Container](#starting-the-container-2)
+  - [Working with NiFi](#working-with-nifi)
 - [Basic Usage](#basic-usage)
   - [Building the Image](#building-the-image)
   - [Starting the Container](#starting-the-container)
@@ -11,10 +15,6 @@ A Docker-based environment for running Apache NiFi with Python extensions. This 
 - [Accessing NiFi](#accessing-nifi)
 - [File Access](#file-access)
   - [Using the Files Directory](#using-the-files-directory)
-- [Practical Example Guide](#practical-example-guide)
-  - [Building the Image](#building-the-image-2)
-  - [Starting the Container](#starting-the-container-2)
-  - [Working with NiFi](#working-with-nifi)
 - [Advanced Usage](#advanced-usage)
   - [Adding System Libraries](#adding-system-libraries)
     - [System Libraries](#system-libraries)
@@ -45,6 +45,76 @@ A Docker-based environment for running Apache NiFi with Python extensions. This 
 
 - [Docker](https://docs.docker.com/get-docker/)
 - [Docker Compose](https://docs.docker.com/compose/install/)
+
+
+## Quick Guide
+
+This repository contains an example Python processor that can be used to test the Liquid Playground environment.
+
+It is located in the `example/ParseDocument` directory.
+
+> Note: This processor is not production ready and should not be used in a production environment.
+ 
+In this guide, we will show you how the Playground environment can be used to experiment with Python processors.
+
+### Building the Image
+
+The `ExampleProcessor` uses [Google's Tesseract OCR](https://github.com/tesseract-ocr/tesseract) Engine to extract text
+from PDF files. That means our NiFi image must have Tesseract OCR libraries installed.
+
+To build the Playground image with Tesseract installed, run the following command:
+
+```bash
+./build.sh tesseract-ocr tesseract-ocr-eng libtesseract-dev libleptonica-dev pkg-config
+```
+
+### Starting the Container
+Now when we have an image with necessary libraries installed, we can start the container with the processor:
+
+```bash
+./start.sh ./example/ParseDocument
+```
+
+Wait for the container to start. Your console output should look like this:
+
+```
+Stopping any existing container...
+Checking if the Docker image exists...
+Adding Python processor paths as volume mounts...
+Starting the container...
+[+] Running 3/3
+ ✔ Network liquid-playground_default                    Created
+ ✔ Container liquid-playground                          Started                                                                                                          0.3s 
+Waiting for NiFi to start...
+Still waiting for NiFi to start...
+
+NiFi has started successfully!
+Extracting credentials...
+
+Username: bddec316-3c6f-4c1a-b601-91379f0e6572
+Password: 3egF2be993otE/xnGFUdR5bZq0AxKz0B
+
+Use these credentials to access NiFi: https://localhost:8443/nifi
+```
+
+### Working with NiFi
+
+Access nifi on URL provided in the console output. By default, it will be http://localhost:8443/nifi
+Enter Username and Password as provided in the console output.
+
+Add FetchFile Processor with the following settings:
+- File to Fetch: /files/dummy.pdf
+- Leave other fields with their default values
+
+Add ParseDocument Processor with the following settings:
+- Input Format: PDF
+- Infer Table Structure: False
+
+Wait some time until NiFi installs processor dependencies and starts processing the file.
+
+> You can track dependencies installation progress in logs of the NiFi.
+> This can be done with the following command: `./logs.sh`
+> or with docker command: `docker compose logs -f`
 
 ## Basic Usage
 
@@ -116,75 +186,6 @@ From within NiFi, you can configure `FetchFile` processors to fetch files using:
 
 Any files placed in the local `./files` directory will be directly accessible to NiFi through the mounted path at `/files`, making it easy to feed files into your data processing workflows.
 
-
-## Practical Example Guide
-
-This repository contains an example Python processor that can be used to test the Liquid Playground environment.
-
-It is located in the `example/ParseDocument` directory.
-
-> Note: This processor is not production ready and should not be used in a production environment.
- 
-In this guide, we will show you how the Playground environment can be used to experiment with Python processors.
-
-### Building the Image
-
-The `ExampleProcessor` uses [Google's Tesseract OCR](https://github.com/tesseract-ocr/tesseract) Engine to extract text
-from PDF files. That means our NiFi image must have Tesseract OCR libraries installed.
-
-To build the Playground image with Tesseract installed, run the following command:
-
-```bash
-./build.sh tesseract-ocr tesseract-ocr-eng libtesseract-dev libleptonica-dev pkg-config
-```
-
-### Starting the Container
-Now when we have an image with necessary libraries installed, we can start the container with the processor:
-
-```bash
-./start.sh ./example/ParseDocument
-```
-
-Wait for the container to start. Your console output should look like this:
-
-```
-Stopping any existing container...
-Checking if the Docker image exists...
-Adding Python processor paths as volume mounts...
-Starting the container...
-[+] Running 3/3
- ✔ Network liquid-playground_default                    Created
- ✔ Container liquid-playground                          Started                                                                                                          0.3s 
-Waiting for NiFi to start...
-Still waiting for NiFi to start...
-
-NiFi has started successfully!
-Extracting credentials...
-
-Username: bddec316-3c6f-4c1a-b601-91379f0e6572
-Password: 3egF2be993otE/xnGFUdR5bZq0AxKz0B
-
-Use these credentials to access NiFi: https://localhost:8443/nifi
-```
-
-### Working with NiFi
-
-Access nifi on URL provided in the console output. By default, it will be http://localhost:8443/nifi
-Enter Username and Password as provided in the console output.
-
-Add FetchFile Processor with the following settings:
-- File to Fetch: /files/dummy.pdf
-- Leave other fields with their default values
-
-Add ParseDocument Processor with the following settings:
-- Input Format: PDF
-- Infer Table Structure: False
-
-Wait some time until NiFi installs processor dependencies and starts processing the file.
-
-> You can track dependencies installation progress in logs of the NiFi.
-> This can be done with the following command: `./logs.sh`
-> or with docker command: `docker compose logs -f`
 
 ## Advanced Usage
 
