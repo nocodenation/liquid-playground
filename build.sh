@@ -34,4 +34,4 @@ docker image rm nocodenation/liquid-playground:latest
 docker build -t nocodenation/liquid-playground:latest -f Dockerfile.tmp --platform linux/amd64 .
 
 # Clean up the temporary Dockerfile
-#rm Dockerfile.tmp
+rm Dockerfile.tmp
