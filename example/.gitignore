@@ -1,3 +1,4 @@
+!.gitignore
 !ParseDocument/
 !ParseDocument/__init__.py
 !ParseDocument/requirements.txt

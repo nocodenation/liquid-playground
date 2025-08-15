@@ -1,0 +1,8 @@
+# Ignore everything in this directory
+*
+# Except for initial files
+!dummy.docx
+!dummy.pdf
+
+# Don't ignore this .gitignore file itself
+!.gitignore

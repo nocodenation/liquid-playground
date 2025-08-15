@@ -40,4 +40,4 @@ echo "$ARCH"
 docker build -t nocodenation/liquid-playground:latest -f Dockerfile.tmp --platform $ARCH .
 
 # Clean up the temporary Dockerfile
-#rm Dockerfile.tmp
+rm Dockerfile.tmp
