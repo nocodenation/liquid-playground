@@ -31,7 +31,13 @@ docker compose down
 docker image rm nocodenation/liquid-playground:latest
 
 # Build the Docker image using the temporary Dockerfile
-docker build -t nocodenation/liquid-playground:latest -f Dockerfile.tmp --platform linux/amd64 .
+if uname -a | grep "arm64"; then
+    ARCH=linux/arm64
+else
+    ARCH=linux/amd64
+fi
+echo "$ARCH"
+docker build -t nocodenation/liquid-playground:latest -f Dockerfile.tmp --platform $ARCH .
 
 # Clean up the temporary Dockerfile
-rm Dockerfile.tmp
+#rm Dockerfile.tmp

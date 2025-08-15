@@ -25,15 +25,6 @@ if [ ${#PYTHON_PROCESSOR_PATHS[@]} -gt 0 ]; then
   VOLUMES_END=$(grep -n "./python_extensions:" docker-compose.tmp.yml | cut -d: -f1)
   VOLUMES_END=$((VOLUMES_END + 1))
 
-  # Determine sed in-place flag for GNU vs BSD (macOS)
-  if sed --version >/dev/null 2>&1; then
-    # GNU sed
-    SED_INPLACE=(-i)
-  else
-    # BSD sed (macOS) requires a backup suffix (empty string to avoid backup files)
-    SED_INPLACE=(-i '')
-  fi
-
   # Add each Python processor path as a volume mount
   for path in "${PYTHON_PROCESSOR_PATHS[@]}"; do
     # Remove trailing slash if present
@@ -41,7 +32,14 @@ if [ ${#PYTHON_PROCESSOR_PATHS[@]} -gt 0 ]; then
     # Get the basename of the path to use as the mount point
     basename=$(basename "$path")
     # Insert the new volume mount after the existing one
-    sed "${SED_INPLACE[@]}" -e "${VOLUMES_END}i\\      - ${path}:/opt/nifi/nifi-current/python_extensions/${basename}:z" docker-compose.tmp.yml
+    if sed --version >/dev/null 2>&1; then
+      # GNU sed supports single-line i\ insertion
+      sed -i "${VOLUMES_END}i\\      - ${path}:/opt/nifi/nifi-current/python_extensions/${basename}:z" docker-compose.tmp.yml
+    else
+      # BSD sed (macOS) requires the inserted text on the next line after i\
+      sed -i '' "${VOLUMES_END}i\
+      - ${path}:/opt/nifi/nifi-current/python_extensions/${basename}:z" docker-compose.tmp.yml
+    fi
   done
 fi
 

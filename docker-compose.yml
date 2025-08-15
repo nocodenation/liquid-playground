@@ -2,7 +2,6 @@ services:
   liquid-playground:
     image: nocodenation/liquid-playground:latest
     container_name: liquid-playground
-    platform: linux/amd64
     volumes:
       - ./files:/files:z
       - ./python_extensions:/opt/nifi/nifi-current/python_extensions:z
