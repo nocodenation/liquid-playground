@@ -116,6 +116,18 @@ Wait some time until NiFi installs processor dependencies and starts processing 
 > This can be done with the following command: `./logs.sh`
 > or with docker command: `docker compose logs -f`
 
+## Included Processors
+
+This repository comes with a pre-built Python processor:
+
+### AttributesFromJSON
+
+Located in `python_extensions/AttributesFromJSON`, this processor creates FlowFile attributes from a JSON object.
+
+- **Input**: Accepts JSON either as raw text (via "JSON Text" property) or from a file (via "JSON File Path" property).
+- **Output**: Attributes named after the JSON keys. Nested objects are serialized as JSON strings.
+- **Usage**: Useful for parsing JSON configuration files or incoming JSON data to drive flow logic.
+
 ## Basic Usage
 
 ### Building the Image
@@ -135,29 +147,70 @@ You can also specify additional system libraries to install:
 These are system libraries (apt packages) that might be required for certain Python packages to work properly, not Python packages themselves. Python packages will be managed by NiFi.
 
 ### Starting the Container
-
-To start the container, use the start script:
-
-```bash
-./start.sh
-```
-
-This script will:
-1. Stop any existing container
-2. Check if the Docker image exists, and build it if necessary
-3. Start the container
-4. Wait for NiFi to start
-5. Display the generated username and password in a clean format (Username: value, Password: value)
-
-You can also specify paths to Python processor directories to be mounted in the container:
-
-```bash
-./start.sh /path/to/processor1/folder /path/to/processor2/folder/ /path/to/processor3/file.py
-```
-
-This will mount each specified Python Processor inside the container's `/opt/nifi/nifi-current/python_extensions/` folder, making the processors available to NiFi.
-
-### Stopping the Container
+ 
+ To start the container, use the start script:
+ 
+ ```bash
+ ./start.sh
+ ```
+ 
+ This script will:
+ 1. Stop any existing container
+ 2. Check if the Docker image exists, and build it if necessary
+ 3. Start the container
+ 4. Wait for NiFi to start
+ 5. Display the credentials (generated, from file, or from arguments)
+ 
+ #### Managing Credentials
+ 
+ By default, NiFi generates a random username and password on every start. You can control this behavior using command-line arguments or a credentials file.
+ 
+ **1. Using CLI Arguments**
+ 
+ You can provide a specific username and password directly (password must be at least 12 characters):
+ 
+ ```bash
+ ./start.sh -u admin -p mysecurepassword123
+ ```
+ 
+ **2. Saving Credentials**
+ 
+ To save the credentials (whether generated or provided via CLI) to a `.credentials` file for future use, use the `-s` or `--save-credentials` flag:
+ 
+ ```bash
+ # Save generated credentials
+ ./start.sh -s
+ 
+ # Save provided credentials
+ ./start.sh -u admin -p mysecurepassword123 -s
+ ```
+ 
+ **3. Using Saved Credentials**
+ 
+ If a valid `.credentials` file exists in the project root, `./start.sh` will automatically use it.
+ 
+ ```bash
+ ./start.sh
+ # Output: Using credentials from FILE: ...
+ ```
+ 
+ #### Mounting Python Processors
+ 
+ You can also specify paths to Python processor directories to be mounted in the container:
+ 
+ ```bash
+ ./start.sh /path/to/processor1/folder /path/to/processor2/folder/ /path/to/processor3/file.py
+ ```
+ 
+ This will mount each specified Python Processor inside the container's `/opt/nifi/nifi-current/python_extensions/` folder, making the processors available to NiFi.
+ 
+ You can combine credential arguments with processor paths:
+ 
+ ```bash
+ ./start.sh -u admin -p password123456 -s ./my_processor/
+ ```
+ 
+ ### Stopping the Container
 
 To stop the container, use the stop script:
 

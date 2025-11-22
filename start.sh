@@ -1,7 +1,86 @@
 #!/bin/bash
 
-# Get Python processor paths from command line arguments
-PYTHON_PROCESSOR_PATHS=("$@")
+PYTHON_PROCESSOR_PATHS=()
+SAVE_CREDENTIALS=false
+CLI_USERNAME=""
+CLI_PASSWORD=""
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -s|--save-credentials)
+      SAVE_CREDENTIALS=true
+      shift
+      ;;
+    -u|--username)
+      CLI_USERNAME="$2"
+      shift 2
+      ;;
+    -p|--password)
+      CLI_PASSWORD="$2"
+      shift 2
+      ;;
+    *)
+      PYTHON_PROCESSOR_PATHS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+# Handle legacy credentials file
+if [ -f .nifi_credentials ] && [ ! -f .credentials ]; then
+    echo "Renaming .nifi_credentials to .credentials..."
+    mv .nifi_credentials .credentials
+fi
+
+CREDENTIALS_FILE=".credentials"
+EFFECTIVE_USERNAME=""
+EFFECTIVE_PASSWORD=""
+USE_CUSTOM_CREDENTIALS=false
+CREDENTIALS_SOURCE=""
+
+# 1. Check CLI Arguments
+if [ -n "$CLI_USERNAME" ] && [ -n "$CLI_PASSWORD" ]; then
+    if [ ${#CLI_PASSWORD} -ge 12 ]; then
+        EFFECTIVE_USERNAME="$CLI_USERNAME"
+        EFFECTIVE_PASSWORD="$CLI_PASSWORD"
+        USE_CUSTOM_CREDENTIALS=true
+        CREDENTIALS_SOURCE="CLI"
+        echo "Using credentials provided via command line."
+    else
+        echo "WARNING: Command line password is too short (<12 chars). NiFi would reject it."
+        echo "         Ignoring CLI credentials."
+    fi
+elif [ -n "$CLI_USERNAME" ] || [ -n "$CLI_PASSWORD" ]; then
+    echo "WARNING: Both username and password must be provided via command line. Ignoring partial input."
+fi
+
+# 2. Check File (if not already set by CLI)
+if [ "$USE_CUSTOM_CREDENTIALS" = false ] && [ -f "$CREDENTIALS_FILE" ]; then
+  file_username=$(grep "SINGLE_USER_CREDENTIALS_USERNAME" "$CREDENTIALS_FILE" | cut -d= -f2 | tr -d '\r')
+  file_password=$(grep "SINGLE_USER_CREDENTIALS_PASSWORD" "$CREDENTIALS_FILE" | cut -d= -f2 | tr -d '\r')
+  
+  if [ -n "$file_username" ] && [ -n "$file_password" ]; then
+      if [ ${#file_password} -ge 12 ]; then
+          EFFECTIVE_USERNAME="$file_username"
+          EFFECTIVE_PASSWORD="$file_password"
+          USE_CUSTOM_CREDENTIALS=true
+          CREDENTIALS_SOURCE="FILE"
+          echo "Found valid credentials in $CREDENTIALS_FILE."
+      else
+          echo "WARNING: Found $CREDENTIALS_FILE but password is too short (<12 chars)."
+          echo "         Ignoring file."
+      fi
+  else
+      echo "WARNING: Found $CREDENTIALS_FILE but username or password is missing."
+      echo "         Ignoring file."
+  fi
+fi
+
+if [ "$USE_CUSTOM_CREDENTIALS" = false ]; then
+    echo "No valid custom credentials found. NiFi will generate new credentials."
+    CREDENTIALS_SOURCE="GENERATED"
+fi
 
 # Stop any existing container
 echo "Stopping any existing container..."
@@ -16,6 +95,25 @@ fi
 
 # Create a temporary copy of the docker-compose.yml file
 cp docker-compose.yml docker-compose.tmp.yml
+
+# Setup Env File for Docker
+TEMP_ENV_FILE=".env.tmp"
+rm -f "$TEMP_ENV_FILE"
+
+if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
+  # Create temporary env file to pass credentials to container safely
+  echo "SINGLE_USER_CREDENTIALS_USERNAME=$EFFECTIVE_USERNAME" > "$TEMP_ENV_FILE"
+  echo "SINGLE_USER_CREDENTIALS_PASSWORD=$EFFECTIVE_PASSWORD" >> "$TEMP_ENV_FILE"
+  
+  echo "Configuring container to use provided credentials..."
+  awk -v env_file="$TEMP_ENV_FILE" '
+    { print }
+    $0 ~ /container_name: liquid-playground/ {
+      print "    env_file:"
+      print "      - " env_file
+    }
+  ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
+fi
 
 # If Python processor paths are provided, add them as volume mounts
 if [ ${#PYTHON_PROCESSOR_PATHS[@]} -gt 0 ]; then
@@ -56,19 +154,47 @@ while true; do
     echo ""
     echo "NiFi has started successfully!"
 
-    # Extract and display the username and password
-    echo "Extracting credentials..."
-    echo ""
-    username=$(docker compose -f docker-compose.tmp.yml logs | grep "Generated Username" | tail -n 1 | sed -E 's/.*\[([^]]*)\].*/\1/')
-    password=$(docker compose -f docker-compose.tmp.yml logs | grep "Generated Password" | tail -n 1 | sed -E 's/.*\[([^]]*)\].*/\1/')
-    echo "Username: $username"
-    echo "Password: $password"
-    echo ""
+    if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
+      echo "Using credentials from $CREDENTIALS_SOURCE:"
+      echo ""
+      echo "Username: $EFFECTIVE_USERNAME"
+      echo "Password: $EFFECTIVE_PASSWORD"
+      echo ""
+      
+      # If CLI was source and save requested, save them
+      if [ "$CREDENTIALS_SOURCE" == "CLI" ] && [ "$SAVE_CREDENTIALS" = true ]; then
+          echo "Saving provided credentials to $CREDENTIALS_FILE..."
+          echo "SINGLE_USER_CREDENTIALS_USERNAME=$EFFECTIVE_USERNAME" > "$CREDENTIALS_FILE"
+          echo "SINGLE_USER_CREDENTIALS_PASSWORD=$EFFECTIVE_PASSWORD" >> "$CREDENTIALS_FILE"
+          echo "Credentials saved."
+          echo ""
+      fi
+    else
+      # Generated
+      echo "Extracting generated credentials..."
+      echo ""
+      username=$(docker compose -f docker-compose.tmp.yml logs | grep "Generated Username" | tail -n 1 | sed -E 's/.*\[([^]]*)\].*/\1/')
+      password=$(docker compose -f docker-compose.tmp.yml logs | grep "Generated Password" | tail -n 1 | sed -E 's/.*\[([^]]*)\].*/\1/')
+      echo "Username: $username"
+      echo "Password: $password"
+      echo ""
+      
+      if [ "$SAVE_CREDENTIALS" = true ]; then
+          echo "Saving generated credentials to $CREDENTIALS_FILE..."
+          echo "SINGLE_USER_CREDENTIALS_USERNAME=$username" > "$CREDENTIALS_FILE"
+          echo "SINGLE_USER_CREDENTIALS_PASSWORD=$password" >> "$CREDENTIALS_FILE"
+          echo "Credentials saved."
+          echo ""
+      fi
+    fi
 
     echo "Use these credentials to access NiFi: https://localhost:8443/nifi"
 
-    # Clean up the temporary docker-compose file
+    # Clean up the temporary files
     rm docker-compose.tmp.yml
+    if [ -f "$TEMP_ENV_FILE" ]; then
+        rm "$TEMP_ENV_FILE"
+    fi
 
     break
   fi
