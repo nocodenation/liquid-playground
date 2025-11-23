@@ -15,9 +15,17 @@ class AttributesFromJSON(FlowFileTransform):
     def __init__(self, **kwargs):
         pass
 
+    JSON_SOURCE = PropertyDescriptor(
+        name="JSON Source",
+        description="Where to read the JSON content from.",
+        required=True,
+        default_value="FlowFile Content",
+        allowable_values=["FlowFile Content", "JSON Text Property", "File"]
+    )
+
     JSON_TEXT = PropertyDescriptor(
         name="JSON Text",
-        description="The JSON object to parse. Keys will be attribute names, values will be attribute values.",
+        description="The JSON object to parse. Used only if JSON Source is 'JSON Text Property'.",
         required=False,
         validators=[StandardValidators.NON_EMPTY_VALIDATOR],
         expression_language_scope=ExpressionLanguageScope.FLOWFILE_ATTRIBUTES
@@ -25,34 +33,62 @@ class AttributesFromJSON(FlowFileTransform):
 
     JSON_FILE_PATH = PropertyDescriptor(
         name="JSON File Path",
-        description="Path to a file containing the JSON object. If provided, 'JSON Text' is ignored.",
+        description="Path to a file containing the JSON object. Used only if JSON Source is 'File'.",
         required=False,
         validators=[StandardValidators.NON_EMPTY_VALIDATOR],
         expression_language_scope=ExpressionLanguageScope.FLOWFILE_ATTRIBUTES
     )
 
     def getPropertyDescriptors(self):
-        return [self.JSON_TEXT, self.JSON_FILE_PATH]
+        return [self.JSON_SOURCE, self.JSON_TEXT, self.JSON_FILE_PATH]
 
     def transform(self, context, flowFile):
         json_content = ""
+        source = context.getProperty(self.JSON_SOURCE).getValue()
         
-        file_path = context.getProperty(self.JSON_FILE_PATH).evaluateAttributeExpressions(flowFile).getValue()
-        
-        if file_path:
+        if source == "File":
+            file_path = context.getProperty(self.JSON_FILE_PATH).evaluateAttributeExpressions(flowFile).getValue()
+            if not file_path:
+                self.logger.error("JSON Source is 'File' but 'JSON File Path' is empty")
+                return FlowFileTransformResult(relationship="failure")
+                
             if os.path.exists(file_path) and os.path.isfile(file_path):
                 try:
                     with open(file_path, 'r') as f:
                         json_content = f.read()
                 except Exception as e:
-                    # In FlowFileTransform, usually we route to failure on errors
                     self.logger.error(f"Failed to read file {file_path}: {str(e)}")
                     return FlowFileTransformResult(relationship="failure")
             else:
                  self.logger.error(f"File not found: {file_path}")
                  return FlowFileTransformResult(relationship="failure")
-        else:
+                
+        elif source == "JSON Text Property":
             json_content = context.getProperty(self.JSON_TEXT).evaluateAttributeExpressions(flowFile).getValue()
+            if not json_content:
+                self.logger.error("JSON Source is 'JSON Text Property' but 'JSON Text' is empty")
+                return FlowFileTransformResult(relationship="failure")
+            
+        else: # FlowFile Content
+            # For FlowFileTransform, getting content is not as direct as `session.read()`.
+            # The `transform` method signature receives `flowFile`, but this object doesn't expose content directly.
+            # However, in NiFi Python API, FlowFileTransform is often used when you return *new* content.
+            # To read *existing* content, the documentation suggests passing `flowFile` to a helper or using the method `flowFile.getContentsAsBytes()`.
+            # Let's check if `getContentsAsBytes()` is available on the `flowFile` object passed to transform.
+            # Based on NiFi Python API: flowFile has `getContentsAsBytes()`.
+            
+            try:
+                content_bytes = flowFile.getContentsAsBytes()
+                if content_bytes:
+                    json_content = content_bytes.decode('utf-8')
+            except Exception as e:
+                self.logger.error(f"Failed to read FlowFile content: {str(e)}")
+                return FlowFileTransformResult(relationship="failure")
+
+        if not json_content:
+             self.logger.error(f"No JSON content found from source: {source}")
+             return FlowFileTransformResult(relationship="failure")
+
 
         if not json_content:
              # If neither is provided or result is empty

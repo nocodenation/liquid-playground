@@ -138,18 +138,20 @@ Located in `python_extensions/GetGoogleMail`, this processor fetches emails from
   - Can output full JSON metadata or raw RFC 822 email content.
   - Optionally marks messages as read (removes UNREAD label).
 - **Setup**:
-  - Requires a `token.json` file for authentication. This can be generated using the `GoogleOAuthManager` processor.
-  - The location of this file is configurable in the processor properties (default recommendation: `/files/token.json`).
+- Requires a `token.json` file for authentication. This can be generated using the `GoogleOAuthManager` processor.
+- The location of this file is configurable in the processor properties (default recommendation: `/files/token.json`).
+- **Example Flow**: [GetGoogleMail.json](flow_definition_examples/GetGoogleMail.json)
 
 ### GoogleOAuthManager
 
 Located in `python_extensions/GoogleOAuthManager`, this processor handles the OAuth 2.0 flow for obtaining Google credentials.
 
 - **Features**:
-  - Generates Authorization URLs (login links).
-  - Exchanges Authorization Codes for Access/Refresh tokens.
-  - Supports both **Desktop** and **Web Application** client types.
-  - Simplifies "3-legged OAuth" implementation within NiFi.
+- Generates Authorization URLs (login links).
+- Exchanges Authorization Codes for Access/Refresh tokens.
+- Supports both **Desktop** and **Web Application** client types.
+- Simplifies "3-legged OAuth" implementation within NiFi.
+- **Example Flow**: [GoogleOAuthFlow.json](flow_definition_examples/GoogleOAuthFlow.json)
 
 - **Usage Scenarios**:
 
@@ -169,6 +171,17 @@ Located in `python_extensions/GoogleOAuthManager`, this processor handles the OA
     - Configure `GoogleOAuthManager` with the EXACT public Redirect URI.
     - Configure `HandleHttpRequest` to listen on the internal port (e.g., `8999`).
     - Ensure your Ingress/Load Balancer routes the public URL path to the container's port.
+
+### ListGMailInbox
+
+Located in `python_extensions/ListGMailInbox`, this processor lists emails from a Gmail account.
+
+- **Features**:
+  - Lists emails based on a search query (e.g., `is:unread`).
+  - Returns a JSON List of email metadata (Snippet, Subject, From, Date).
+  - Handles pagination automatically.
+- **Output**: Single FlowFile containing a JSON Array of all matching emails.
+- **Example Flow**: [ListGMailInbox.json](flow_definition_examples/ListGMailInbox.json)
 
 ## Basic Usage
 
