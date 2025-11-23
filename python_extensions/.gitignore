@@ -1,6 +1,22 @@
-# Ignore everything in this directory
+# Ignore everything in this directory by default
 *
+
 # Except for this file
 !README.md
+
 # Don't ignore this .gitignore file itself
 !.gitignore
+
+# Allow specific processor directories
+!AttributesFromJSON/
+!AttributesFromJSON/**
+!GetGoogleMail/
+!GetGoogleMail/**
+!GoogleOAuthManager/
+!GoogleOAuthManager/**
+
+# But strictly ignore sensitive files and environments within those directories
+**/credentials.json
+**/token.json
+**/venv/
+**/__pycache__/
