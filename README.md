@@ -128,6 +128,48 @@ Located in `python_extensions/AttributesFromJSON`, this processor creates FlowFi
 - **Output**: Attributes named after the JSON keys. Nested objects are serialized as JSON strings.
 - **Usage**: Useful for parsing JSON configuration files or incoming JSON data to drive flow logic.
 
+### GetGoogleMail
+
+Located in `python_extensions/GetGoogleMail`, this processor fetches emails from a Gmail account.
+
+- **Features**:
+  - Fetches emails using OAuth 2.0 (User Credentials).
+  - Supports filtering with standard Gmail queries (e.g., `is:unread label:INBOX`).
+  - Can output full JSON metadata or raw RFC 822 email content.
+  - Optionally marks messages as read (removes UNREAD label).
+- **Setup**:
+  - Requires a `token.json` file for authentication. This can be generated using the `GoogleOAuthManager` processor.
+  - The location of this file is configurable in the processor properties (default recommendation: `/files/token.json`).
+
+### GoogleOAuthManager
+
+Located in `python_extensions/GoogleOAuthManager`, this processor handles the OAuth 2.0 flow for obtaining Google credentials.
+
+- **Features**:
+  - Generates Authorization URLs (login links).
+  - Exchanges Authorization Codes for Access/Refresh tokens.
+  - Supports both **Desktop** and **Web Application** client types.
+  - Simplifies "3-legged OAuth" implementation within NiFi.
+
+- **Usage Scenarios**:
+
+  **1. Local Development (Docker/Localhost)**
+  - **Client Type**: Desktop App (`credentials.json` starts with `{"installed": ...}`)
+  - **Redirect URI**: `http://localhost:8999/callback`
+  - **Setup**:
+    - Configure `GoogleOAuthManager` with the Redirect URI.
+    - Configure `HandleHttpRequest` to listen on port `8999` (ensure Docker maps this port).
+
+  **2. Remote Server (Production/Cloud)**
+  - **Client Type**: Web Application (`credentials.json` starts with `{"web": ...}`)
+  - **Redirect URI**: Your public URL (e.g., `https://nifi.example.com/callback`)
+  - **Setup**:
+    - Create **Web Application** credentials in Google Cloud Console.
+    - Add your public callback URL to the **Authorized redirect URIs** in Google Console.
+    - Configure `GoogleOAuthManager` with the EXACT public Redirect URI.
+    - Configure `HandleHttpRequest` to listen on the internal port (e.g., `8999`).
+    - Ensure your Ingress/Load Balancer routes the public URL path to the container's port.
+
 ## Basic Usage
 
 ### Building the Image
