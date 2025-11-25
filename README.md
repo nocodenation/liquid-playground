@@ -183,6 +183,23 @@ Located in `python_extensions/ListGMailInbox`, this processor lists emails from 
 - **Output**: Single FlowFile containing a JSON Array of all matching emails.
 - **Example Flow**: [ListGMailInbox.json](flow_definition_examples/ListGMailInbox.json)
 
+### GetYouTubeVideo
+
+Located in `python_extensions/GetYouTubeVideo`, this processor downloads a YouTube video as an MP4 file.
+
+- **Input**: `YouTube URL` property (supports Expression Language).
+- **Output**: The downloaded video content (MP4).
+- **Dependencies**: 
+  - `yt-dlp` (Python package, installed automatically).
+  - **FFmpeg** (System package, highly recommended for best quality).
+    - Without FFmpeg, it downloads the best available single-file stream (usually 720p).
+    - With FFmpeg, it can merge best video+audio streams (1080p+).
+- **Installation**:
+  To install FFmpeg in the container, rebuild the image:
+  ```bash
+  ./build.sh ffmpeg
+  ```
+
 ## Basic Usage
 
 ### Building the Image
