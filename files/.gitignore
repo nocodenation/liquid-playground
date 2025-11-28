@@ -3,6 +3,7 @@
 # Except for initial files
 !dummy.docx
 !dummy.pdf
+!login_success.html
 
 # Don't ignore this .gitignore file itself
 !.gitignore

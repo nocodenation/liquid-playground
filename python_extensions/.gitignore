@@ -14,6 +14,10 @@
 !GetGoogleMail/**
 !GoogleOAuthManager/
 !GoogleOAuthManager/**
+!MicrosoftOAuthManager/
+!MicrosoftOAuthManager/**
+!GetMicrosoftMail/
+!GetMicrosoftMail/**
 
 # But strictly ignore sensitive files and environments within those directories
 **/credentials.json
