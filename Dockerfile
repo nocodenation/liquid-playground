@@ -42,4 +42,4 @@ exec ../scripts/start.sh\n\
 ' > /opt/nifi/nifi-current/start_and_persist.sh && chmod +x /opt/nifi/nifi-current/start_and_persist.sh
 
 USER nifi:nifi
-CMD ["/opt/nifi/nifi-current/start_and_persist.sh"]
+ENTRYPOINT ["/opt/nifi/nifi-current/start_and_persist.sh"]
