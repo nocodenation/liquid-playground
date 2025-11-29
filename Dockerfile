@@ -25,15 +25,12 @@ fi\n\
 \n\
 # 2. Background Backup Loop\n\
 (while true; do\n\
-    sleep 10\n\
+    sleep 15\n\
     if [ -f "$CONF_DIR/$FLOW_FILE" ]; then\n\
-        # Check if file changed before copying to save IO/avoid corruption risk\n\
-        # Using cmp -s is silent comparison\n\
-        if ! cmp -s "$CONF_DIR/$FLOW_FILE" "$PERSISTENT_DIR/$FLOW_FILE"; then\n\
-            cp "$CONF_DIR/$FLOW_FILE" "$PERSISTENT_DIR/$FLOW_FILE"\n\
-            [ -f "$CONF_DIR/users.xml" ] && cp "$CONF_DIR/users.xml" "$PERSISTENT_DIR/users.xml"\n\
-            [ -f "$CONF_DIR/authorizations.xml" ] && cp "$CONF_DIR/authorizations.xml" "$PERSISTENT_DIR/authorizations.xml"\n\
-        fi\n\
+        # Simple copy, ignore errors\n\
+        cp "$CONF_DIR/$FLOW_FILE" "$PERSISTENT_DIR/$FLOW_FILE" 2>/dev/null\n\
+        [ -f "$CONF_DIR/users.xml" ] && cp "$CONF_DIR/users.xml" "$PERSISTENT_DIR/users.xml" 2>/dev/null\n\
+        [ -f "$CONF_DIR/authorizations.xml" ] && cp "$CONF_DIR/authorizations.xml" "$PERSISTENT_DIR/authorizations.xml" 2>/dev/null\n\
     fi\n\
 done) &\n\
 \n\
