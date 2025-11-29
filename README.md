@@ -344,6 +344,26 @@ From within NiFi, you can configure `FetchFile` processors to fetch files using:
 
 Any files placed in the local `./files` directory will be directly accessible to NiFi through the mounted path at `/files`, making it easy to feed files into your data processing workflows.
 
+## Flow Persistence
+
+By default, NiFi's flow configuration and repositories are ephemeral in a container. Liquid Playground has been configured to persist your work automatically.
+
+### How it Works
+- All flow configurations, users, and content repositories are persisted in the local `./state` directory.
+- On startup, `start.sh` mounts this directory into the container.
+- If `./state/conf` is empty (first run), the script automatically bootstraps it with the default configuration from the image.
+
+### Resetting the Environment
+If you want to wipe all flows and start fresh (factory reset), use the `--clear-all-flows` (or `-c`) flag:
+
+```bash
+./start.sh --clear-all-flows
+```
+
+This will:
+1. Delete the local `./state` directory.
+2. Restart the container.
+3. Re-initialize the configuration from defaults.
 
 ## Advanced Usage
 
