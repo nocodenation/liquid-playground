@@ -2,6 +2,7 @@
 
 PYTHON_PROCESSOR_PATHS=()
 SAVE_CREDENTIALS=false
+CLEAR_ALL_FLOWS=false
 CLI_USERNAME=""
 CLI_PASSWORD=""
 
@@ -10,6 +11,10 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     -s|--save-credentials)
       SAVE_CREDENTIALS=true
+      shift
+      ;;
+    -c|--clear-all-flows)
+      CLEAR_ALL_FLOWS=true
       shift
       ;;
     -u|--username)
@@ -86,6 +91,31 @@ fi
 echo "Stopping any existing container..."
 docker compose down
 
+# Handle persistence state
+STATE_DIR="./state"
+
+if [ "$CLEAR_ALL_FLOWS" = true ]; then
+    echo "Clearing all persisted flows and state..."
+    if [ -d "$STATE_DIR" ]; then
+        rm -rf "$STATE_DIR"
+        echo "State directory deleted."
+    else
+        echo "No state directory found to clear."
+    fi
+fi
+
+# Create state directories if they don't exist
+mkdir -p "$STATE_DIR/conf"
+mkdir -p "$STATE_DIR/database_repository"
+mkdir -p "$STATE_DIR/flowfile_repository"
+mkdir -p "$STATE_DIR/content_repository"
+mkdir -p "$STATE_DIR/provenance_repository"
+mkdir -p "$STATE_DIR/run" # For Process ID
+
+# Ensure permissions (Docker user is usually 1000:1000 for NiFi image)
+# We use a broad chmod here to avoid permission issues on mounts
+chmod -R 777 "$STATE_DIR"
+
 # Check if the image exists
 echo "Checking if the Docker image exists..."
 if ! docker image inspect nocodenation/liquid-playground:latest &> /dev/null; then
@@ -111,6 +141,25 @@ if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
     $0 ~ /container_name: liquid-playground/ {
       print "    env_file:"
       print "      - " env_file
+    }
+    $0 ~ /volumes:/ {
+      print "      - ./state/conf:/opt/nifi/nifi-current/conf_persistent:z"
+      print "      - ./state/database_repository:/opt/nifi/nifi-current/database_repository:z"
+      print "      - ./state/flowfile_repository:/opt/nifi/nifi-current/flowfile_repository:z"
+      print "      - ./state/content_repository:/opt/nifi/nifi-current/content_repository:z"
+      print "      - ./state/provenance_repository:/opt/nifi/nifi-current/provenance_repository:z"
+    }
+  ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
+else
+  # No credentials file, but we still need to add persistence volumes
+  awk '
+    { print }
+    $0 ~ /volumes:/ {
+      print "      - ./state/conf:/opt/nifi/nifi-current/conf_persistent:z"
+      print "      - ./state/database_repository:/opt/nifi/nifi-current/database_repository:z"
+      print "      - ./state/flowfile_repository:/opt/nifi/nifi-current/flowfile_repository:z"
+      print "      - ./state/content_repository:/opt/nifi/nifi-current/content_repository:z"
+      print "      - ./state/provenance_repository:/opt/nifi/nifi-current/provenance_repository:z"
     }
   ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
 fi
