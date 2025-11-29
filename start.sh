@@ -112,6 +112,18 @@ mkdir -p "$STATE_DIR/content_repository"
 mkdir -p "$STATE_DIR/provenance_repository"
 mkdir -p "$STATE_DIR/run" # For Process ID
 
+# Initialize configuration if empty (Bootstrap Persistence)
+if [ -z "$(ls -A "$STATE_DIR/conf")" ]; then
+    echo "Initializing persistent configuration..."
+    # Run a temporary container to copy default config
+    docker run --rm \
+        -v "$(pwd)/$STATE_DIR/conf":/target \
+        --entrypoint /bin/bash \
+        nocodenation/liquid-playground:latest \
+        -c "cp -r /opt/nifi/nifi-current/conf/* /target/"
+    echo "Configuration initialized."
+fi
+
 # Ensure permissions (Docker user is usually 1000:1000 for NiFi image)
 # We use a broad chmod here to avoid permission issues on mounts
 chmod -R 777 "$STATE_DIR"
@@ -143,7 +155,7 @@ if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
       print "      - " env_file
     }
     $0 ~ /volumes:/ {
-      print "      - ./state/conf:/opt/nifi/nifi-current/conf_persistent:z"
+      print "      - ./state/conf:/opt/nifi/nifi-current/conf:z"
       print "      - ./state/database_repository:/opt/nifi/nifi-current/database_repository:z"
       print "      - ./state/flowfile_repository:/opt/nifi/nifi-current/flowfile_repository:z"
       print "      - ./state/content_repository:/opt/nifi/nifi-current/content_repository:z"
@@ -155,7 +167,7 @@ else
   awk '
     { print }
     $0 ~ /volumes:/ {
-      print "      - ./state/conf:/opt/nifi/nifi-current/conf_persistent:z"
+      print "      - ./state/conf:/opt/nifi/nifi-current/conf:z"
       print "      - ./state/database_repository:/opt/nifi/nifi-current/database_repository:z"
       print "      - ./state/flowfile_repository:/opt/nifi/nifi-current/flowfile_repository:z"
       print "      - ./state/content_repository:/opt/nifi/nifi-current/content_repository:z"
