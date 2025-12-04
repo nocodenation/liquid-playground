@@ -7,20 +7,3 @@
 # Don't ignore this .gitignore file itself
 !.gitignore
 
-# Allow specific processor directories
-!AttributesFromJSON/
-!AttributesFromJSON/**
-!GetGoogleMail/
-!GetGoogleMail/**
-!GoogleOAuthManager/
-!GoogleOAuthManager/**
-!MicrosoftOAuthManager/
-!MicrosoftOAuthManager/**
-!GetMicrosoftMail/
-!GetMicrosoftMail/**
-
-# But strictly ignore sensitive files and environments within those directories
-**/credentials.json
-**/token.json
-**/venv/
-**/__pycache__/

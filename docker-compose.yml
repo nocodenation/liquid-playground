@@ -7,4 +7,3 @@ services:
       - ./python_extensions:/opt/nifi/nifi-current/python_extensions:z
     ports:
       - "8443:8443"
-      - "8999:8999"
