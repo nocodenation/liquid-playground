@@ -5,6 +5,7 @@ SAVE_CREDENTIALS=false
 CLEAR_ALL_FLOWS=false
 CLI_USERNAME=""
 CLI_PASSWORD=""
+ADDITIONAL_PORT_MAPPINGS=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -23,6 +24,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -p|--password)
       CLI_PASSWORD="$2"
+      shift 2
+      ;;
+    --add-port-mapping)
+      ADDITIONAL_PORT_MAPPINGS="$2"
       shift 2
       ;;
     *)
@@ -194,6 +199,31 @@ if [ ${#PYTHON_PROCESSOR_PATHS[@]} -gt 0 ]; then
   # Use awk to insert the constructed lines immediately after the python_extensions entry
   awk -v insert="$INSERT_LINES" '
     inserted==0 && $0 ~ /^[[:space:]]*- \.\/python_extensions:\/opt\/nifi\/nifi-current\/python_extensions:z$/ {
+      print;
+      printf "%s", insert;
+      inserted=1;
+      next
+    }
+    { print }
+  ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
+fi
+
+# If additional port mappings are provided, add them to the docker-compose file
+if [ -n "$ADDITIONAL_PORT_MAPPINGS" ]; then
+  echo "Adding additional port mappings..."
+  
+  # Build the block of lines to insert after the existing ports
+  INSERT_LINES=""
+  IFS=',' read -ra PORTS <<< "$ADDITIONAL_PORT_MAPPINGS"
+  for port_mapping in "${PORTS[@]}"; do
+    # Remove surrounding quotes if present
+    port_mapping=$(echo "$port_mapping" | sed 's/^"//;s/"$//')
+    INSERT_LINES+="      - \"${port_mapping}\"\n"
+  done
+
+  # Use awk to insert the constructed lines immediately after the 8443 port entry
+  awk -v insert="$INSERT_LINES" '
+    inserted==0 && $0 ~ /^[[:space:]]*- "8443:8443"$/ {
       print;
       printf "%s", insert;
       inserted=1;
