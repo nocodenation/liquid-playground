@@ -24,6 +24,32 @@ if [ -n "$ADDITIONAL_PACKAGES" ]; then
     sed "${SED_INPLACE[@]}" -e 's/\(RUN apt-get install -y python3 python3-pip\)/\1 '"$ESCAPED_PACKAGES"'/' Dockerfile.tmp
 fi
 
+# Check for build_extensions.sh and inject it into Dockerfile
+if [ -f "build_extensions.sh" ]; then
+    echo "Found build_extensions.sh, injecting into Docker build..."
+    
+    # Define the insertion point (before switching to nifi user)
+    INSERT_POINT="USER nifi:nifi"
+    
+    # Content to insert
+    # We use a literal newline in the variable for reliable insertion
+    INSERT_CONTENT="COPY build_extensions.sh /tmp/build_extensions.sh\\
+RUN chmod +x /tmp/build_extensions.sh && /tmp/build_extensions.sh"
+    
+    # Determine sed in-place flag for GNU vs BSD (macOS) if not already set
+    if [ -z "$SED_INPLACE" ]; then
+        if sed --version >/dev/null 2>&1; then
+            SED_INPLACE=(-i)
+        else
+            SED_INPLACE=(-i '')
+        fi
+    fi
+
+    # Insert the content before the user switch
+    sed "${SED_INPLACE[@]}" -e "/$INSERT_POINT/i \\
+$INSERT_CONTENT" Dockerfile.tmp
+fi
+
 # Stop existing container if it's running
 docker compose down
 

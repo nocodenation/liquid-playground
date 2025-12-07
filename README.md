@@ -134,6 +134,36 @@ You can also specify additional system libraries to install:
 
 These are system libraries (apt packages) that might be required for certain Python packages to work properly, not Python packages themselves. Python packages will be managed by NiFi.
 
+### Custom Build Extensions (e.g. spaCy models)
+
+For more complex build requirements, such as downloading large language models or installing specific Python packages that need to be present in the image (not just at runtime), you can create a `build_extensions.sh` file in the project root.
+
+If this file exists, it will be executed during the Docker build process.
+
+**Example: Downloading a spaCy model**
+
+1. Create `build_extensions.sh`:
+
+```bash
+#!/bin/bash
+# Install spaCy model
+python3 -m spacy download en_core_web_lg
+```
+
+2. Make it executable (optional, the build script handles this, but good practice):
+
+```bash
+chmod +x build_extensions.sh
+```
+
+3. Run the build script:
+
+```bash
+./build.sh
+```
+
+This ensures the model is baked into the Docker image and available for your processors immediately.
+
 ### Starting the Container
  
  To start the container, use the start script:
