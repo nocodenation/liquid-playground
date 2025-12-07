@@ -31,9 +31,17 @@ if [ -f "build_extensions.sh" ]; then
     # Define the insertion point (before switching to nifi user)
     INSERT_POINT="USER nifi:nifi"
     
+    # Check for .whl files in the current directory to inject
+    COPY_WHEELS=""
+    if compgen -G "*.whl" > /dev/null; then
+        echo "Found .whl files, injecting into Docker build..."
+        COPY_WHEELS="COPY *.whl /tmp/"
+    fi
+    
     # Content to insert
     # We use a literal newline in the variable for reliable insertion
     INSERT_CONTENT="COPY build_extensions.sh /tmp/build_extensions.sh\\
+${COPY_WHEELS}\\
 RUN chmod +x /tmp/build_extensions.sh && /tmp/build_extensions.sh"
     
     # Determine sed in-place flag for GNU vs BSD (macOS) if not already set

@@ -12,6 +12,7 @@
 !start.sh
 !stop.sh
 !logs.sh
+!build_extensions.sh
 
 # ...and not these directories
 !example/
