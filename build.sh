@@ -1,27 +1,74 @@
 #!/bin/bash
 
-# Get additional packages from command line arguments
-ADDITIONAL_PACKAGES="$*"
+# Put all arguments into a variable for parsing
+ARGS="$@"
+
+# Initialize variables
+PIP_PACKAGES=""
+POST_INSTALL_COMMANDS=""
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --post-installation-commands)
+            POST_INSTALL_COMMANDS="$2"
+            shift # past argument
+            shift # past value
+            ;;
+        *)
+            # Append to pip packages
+            PIP_PACKAGES="$PIP_PACKAGES $1"
+            shift # past argument
+            ;;
+    esac
+done
 
 # Create a temporary copy of the Dockerfile
 cp Dockerfile Dockerfile.tmp
 
-# If additional packages are provided, append them to the apt-get install line
-if [ -n "$ADDITIONAL_PACKAGES" ]; then
-    # Escape special characters in the replacement string
-    ESCAPED_PACKAGES=$(echo "$ADDITIONAL_PACKAGES" | sed 's/[\/&]/\\&/g')
+# Determine sed in-place flag for GNU vs BSD (macOS)
+if sed --version >/dev/null 2>&1; then
+    # GNU sed
+    SED_INPLACE=(-i)
+else
+    # BSD sed (macOS) requires a backup suffix (empty string to avoid backup files)
+    SED_INPLACE=(-i '')
+fi
 
-    # Determine sed in-place flag for GNU vs BSD (macOS)
-    if sed --version >/dev/null 2>&1; then
-        # GNU sed
-        SED_INPLACE=(-i)
-    else
-        # BSD sed (macOS) requires a backup suffix (empty string to avoid backup files)
-        SED_INPLACE=(-i '')
-    fi
+# If pip packages are provided, inject a pip install command
+if [ -n "$PIP_PACKAGES" ]; then
+    echo "Injecting pip packages: $PIP_PACKAGES"
+    # Insert after the apt-get install line
+    # We look for the specific apt-get line and append a newline + pip install
+    sed "${SED_INPLACE[@]}" -e "/RUN apt-get install -y python3 python3-pip/a \\
+RUN pip3 install --break-system-packages $PIP_PACKAGES" Dockerfile.tmp
+fi
 
-    # Find the line with apt-get install and append the additional packages
-    sed "${SED_INPLACE[@]}" -e 's/\(RUN apt-get install -y python3 python3-pip\)/\1 '"$ESCAPED_PACKAGES"'/' Dockerfile.tmp
+# Inject post-installation commands if provided
+if [ -n "$POST_INSTALL_COMMANDS" ]; then
+    echo "Injecting post-installation commands..."
+    INJECTED_COMMANDS=""
+    
+    # Split by comma
+    IFS=',' read -ra CMDS <<< "$POST_INSTALL_COMMANDS"
+    
+    # helper variable to manage newlines/backslashes
+    FIRST=true
+    
+    for cmd in "${CMDS[@]}"; do
+        if [ "$FIRST" = true ]; then
+            INJECTED_COMMANDS="RUN $cmd"
+            FIRST=false
+        else
+            # Append with backslash (for sed continuation) and literal newline
+            INJECTED_COMMANDS="${INJECTED_COMMANDS}\\
+RUN $cmd"
+        fi
+    done
+    
+    # Insert before USER nifi:nifi
+    sed "${SED_INPLACE[@]}" -e "/USER nifi:nifi/i \\
+$INJECTED_COMMANDS" Dockerfile.tmp
 fi
 
 # Check for build_extensions.sh and inject it into Dockerfile

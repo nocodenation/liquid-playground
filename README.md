@@ -59,13 +59,16 @@ In this guide, we will show you how the Playground environment can be used to ex
 
 ### Building the Image
 
-The `ExampleProcessor` uses [Google's Tesseract OCR](https://github.com/tesseract-ocr/tesseract) Engine to extract text
-from PDF files. That means our NiFi image must have Tesseract OCR libraries installed.
-
-To build the Playground image with Tesseract installed, run the following command:
+To build the Playground image with additional Python packages (e.g. `pandas`), run the following command:
 
 ```bash
-./build.sh tesseract-ocr tesseract-ocr-eng libtesseract-dev libleptonica-dev pkg-config
+./build.sh pandas
+```
+
+To install system libraries or run other setup commands (like installing `tesseract-ocr`), use the `--post-installation-commands` flag:
+
+```bash
+./build.sh --post-installation-commands "apt-get install -y tesseract-ocr libtesseract-dev"
 ```
 
 ### Starting the Container
@@ -126,13 +129,27 @@ The project includes a build script that creates a Docker image based on Apache 
 ./build.sh
 ```
 
-You can also specify additional system libraries to install:
+You can specify additional Python packages (PyPI) to install by passing them as arguments:
 
 ```bash
-./build.sh tesseract-ocr libtesseract-dev poppler-utils libgl1
+./build.sh pandas numpy requests
 ```
 
-These are system libraries (apt packages) that might be required for certain Python packages to work properly, not Python packages themselves. Python packages will be managed by NiFi.
+### Post-Installation Commands
+
+For more complex build requirements, such as installing system dependencies or running specific setup commands, use the `--post-installation-commands` flag. This accepts a comma-separated list of commands that will be executed after the pip packages are installed.
+
+**Example: Installing Playwright and dependencies**
+
+```bash
+./build.sh playwright --post-installation-commands "playwright install-deps"
+```
+
+**Example: Installing System Packages**
+
+```bash
+./build.sh --post-installation-commands "apt-get install -y tesseract-ocr"
+```
 
 ### Custom Build Extensions (e.g. spaCy models)
 
