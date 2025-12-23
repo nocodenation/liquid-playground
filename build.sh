@@ -8,18 +8,10 @@ POST_INSTALLATION_COMMANDS=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --system-dependencies=*)
-      SYSTEM_DEPENDENCIES="${1#*=}"
-      shift
-      ;;
     --system-dependencies)
       shift
       SYSTEM_DEPENDENCIES="${1:-}"
       shift || true
-      ;;
-    --post-installation-commands=*)
-      POST_INSTALLATION_COMMANDS="${1#*=}"
-      shift
       ;;
     --post-installation-commands)
       shift
@@ -108,7 +100,7 @@ else
     ARCH=linux/amd64
 fi
 echo "Building nocodenation/liquid-playground:latest for $ARCH"
-docker build -t nocodenation/liquid-playground:latest -f Dockerfile.tmp --platform $ARCH .
+#docker build -t nocodenation/liquid-playground:latest -f Dockerfile.tmp --platform $ARCH .
 
 # Clean up the temporary Dockerfile
-rm Dockerfile.tmp
+#rm Dockerfile.tmp
