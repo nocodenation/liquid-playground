@@ -64,6 +64,14 @@ from PDF files. That means our NiFi image must have Tesseract OCR libraries inst
 
 To build the Playground image with Tesseract installed, run the following command:
 
+Recommended (new) syntax using --system-dependencies as a comma-separated list:
+
+```bash
+./build.sh --system-dependencies "tesseract-ocr, tesseract-ocr-eng, libtesseract-dev, libleptonica-dev, pkg-config"
+```
+
+Legacy (still supported but deprecated) positional arguments:
+
 ```bash
 ./build.sh tesseract-ocr tesseract-ocr-eng libtesseract-dev libleptonica-dev pkg-config
 ```
@@ -126,10 +134,16 @@ The project includes a build script that creates a Docker image based on Apache 
 ./build.sh
 ```
 
-You can also specify additional system libraries to install:
+You can also specify additional system libraries to install with `--system-dependencies` flag (a comma separated list of apt packages):
 
 ```bash
-./build.sh tesseract-ocr libtesseract-dev poppler-utils libgl1
+./build.sh --system-dependencies "tesseract-ocr,libtesseract-dev,poppler-utils,libgl1"
+```
+
+If any post-installation commands should be run, they can be specified using the `--post-install-commands` flag (a comma separated list of shell commands):
+
+```bash
+./build.sh --post-install-commands "playwright install-deps,ls -la /"
 ```
 
 These are system libraries (apt packages) that might be required for certain Python packages to work properly, not Python packages themselves. Python packages will be managed by NiFi.
@@ -321,7 +335,7 @@ FROM apache/nifi:2.4.0
 Change it to your desired base image, for example:
 
 ```dockerfile
-FROM docker.env.liquidvu.com/liquid-nifi:master-2.2.0-latest-ci-python
+FROM docker.env.liquidvu.com/liquid-nifi:master-2.7.0-latest-ci-python
 ```
 
 3. Build the Docker image:
