@@ -64,17 +64,25 @@ from PDF files. That means our NiFi image must have Tesseract OCR libraries inst
 
 To build the Playground image with Tesseract installed, run the following command:
 
-Recommended (new) syntax using --system-dependencies as a comma-separated list:
+Recommended (new) syntax using `--system-dependencies` as a comma-separated list of apt packages:
 
 ```bash
 ./build.sh --system-dependencies "tesseract-ocr, tesseract-ocr-eng, libtesseract-dev, libleptonica-dev, pkg-config"
 ```
 
-Legacy (still supported but deprecated) positional arguments:
+If any post-installation commands should be run, they can be specified using the `--post-install-commands` flag (a comma separated list of shell commands):
 
 ```bash
-./build.sh tesseract-ocr tesseract-ocr-eng libtesseract-dev libleptonica-dev pkg-config
+./build.sh --post-install-commands "playwright install-deps,ls -la /"
 ```
+
+Both flags can be combined:
+
+```bash
+./build.sh --system-dependencies "tesseract-ocr, tesseract-ocr-eng, libtesseract-dev, libleptonica-dev, pkg-config" --post-install-commands "playwright install-deps,ls -la /"
+```
+
+
 
 ### Starting the Container
 Now when we have an image with necessary libraries installed, we can start the container with the processor:
