@@ -100,7 +100,7 @@ else
     ARCH=linux/amd64
 fi
 echo "Building nocodenation/liquid-playground:latest for $ARCH"
-#docker build -t nocodenation/liquid-playground:latest -f Dockerfile.tmp --platform $ARCH .
+docker build -t nocodenation/liquid-playground:latest -f Dockerfile.tmp --platform $ARCH .
 
 # Clean up the temporary Dockerfile
-#rm Dockerfile.tmp
+rm Dockerfile.tmp
