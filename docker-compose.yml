@@ -5,5 +5,11 @@ services:
     volumes:
       - ./files:/files:z
       - ./python_extensions:/opt/nifi/nifi-current/python_extensions:z
+      - ./extensions/nifi-set-attribute-processor-1.0-SNAPSHOT.nar:/opt/nifi/nifi-current/lib/nifi-set-attribute-processor-1.0-SNAPSHOT.nar:z
+      - ./extensions/nifi-route-on-json-map-1.0-SNAPSHOT.nar:/opt/nifi/nifi-current/lib/nifi-route-on-json-map-1.0-SNAPSHOT.nar:z
     ports:
       - "8443:8443"
+      - "9999:9999"
+      - "9998:9998"
+      - "9997:9997"
+      - "9996:9996"

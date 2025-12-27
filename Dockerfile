@@ -1,4 +1,4 @@
-FROM apache/nifi:2.6.0
+FROM apache/nifi:2.7.0
 
 USER root:root
 RUN apt-get --allow-releaseinfo-change update
