@@ -19,4 +19,6 @@
 !files/dummy.pdf
 !files/dummy.docx
 !python_extensions/
+!nar_extensions/
+!nar_extensions/README.md
 !state/

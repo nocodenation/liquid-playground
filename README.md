@@ -15,6 +15,14 @@ A Docker-based environment for running Apache NiFi with Python extensions. This 
 - [Accessing NiFi](#accessing-nifi)
 - [File Access](#file-access)
   - [Using the Files Directory](#using-the-files-directory)
+- [Flow Persistence](#flow-persistence)
+- [Java NAR Extensions](#java-nar-extensions)
+  - [NAR Deployment Directory](#nar-deployment-directory)
+  - [Quick NAR Deployment](#quick-nar-deployment)
+  - [Production NAR Deployment](#production-nar-deployment)
+  - [Verifying NAR Installation](#verifying-nar-installation)
+  - [NAR Loading Precedence](#nar-loading-precedence)
+  - [Troubleshooting NAR Deployment](#troubleshooting-nar-deployment)
 - [Advanced Usage](#advanced-usage)
   - [Adding System Libraries](#adding-system-libraries)
     - [System Libraries](#system-libraries)
@@ -279,6 +287,190 @@ This will:
 1. Delete the local `./state` directory.
 2. Restart the container.
 3. Re-initialize the configuration from defaults.
+
+## Java NAR Extensions
+
+Liquid Playground supports custom Java NAR (NiFi Archive) files for extending NiFi with Java-based processors and controller services.
+
+### NAR Deployment Directory
+
+Custom NARs should be placed in the `./nar_extensions/` directory. This directory is:
+- Volume-mounted to `/opt/nifi/nifi-current/nar_extensions/` inside the container
+- Persisted across container restarts
+- Separate from the container's built-in `/opt/nifi/nifi-current/lib/` directory
+
+### Quick NAR Deployment
+
+For development and testing, you can deploy NARs without rebuilding the Docker image:
+
+```bash
+# 1. Build your NAR files
+cd /path/to/your/nar-project
+mvn clean package
+
+# 2. Copy NARs to the nar_extensions directory
+cp target/*.nar /path/to/liquid-playground/nar_extensions/
+
+# 3. Install NARs into the container (requires container to be running)
+docker exec liquid-playground bash -c "cp /opt/nifi/nifi-current/nar_extensions/*.nar /opt/nifi/nifi-current/lib/"
+
+# 4. Clear NAR cache to force reload
+docker exec liquid-playground bash -c "rm -rf /opt/nifi/nifi-current/work/nar/extensions/<nar-name>-*"
+
+# 5. Restart the container to load new NARs
+docker restart liquid-playground
+```
+
+**Important Notes:**
+- NiFi loads NARs from multiple locations with precedence: `lib/` (highest) > `nar_extensions/` > cache
+- Always clear the NAR cache when updating NARs, or NiFi will continue using old cached versions
+- The `nar_extensions/` directory persists across container restarts via volume mount
+
+### Production NAR Deployment
+
+For production deployments, NARs should be built into the Docker image:
+
+```bash
+# 1. Place your NAR files in the ./files/ directory
+cp /path/to/your/*.nar ./files/
+
+# 2. Rebuild the Docker image
+./build.sh
+
+# 3. Start the container with the new image
+./start.sh
+```
+
+The Dockerfile automatically copies `*.nar` files from `./files/` to `/opt/nifi/nifi-current/lib/` during image build.
+
+### Verifying NAR Installation
+
+After deploying NARs, verify they were loaded correctly:
+
+```bash
+# Check if NARs are loaded
+docker exec liquid-playground grep "your-nar-name" /opt/nifi/nifi-current/logs/nifi-app.log | grep "Loaded NAR"
+
+# List all loaded NARs
+docker exec liquid-playground ls -la /opt/nifi/nifi-current/lib/*.nar
+
+# Check NAR cache
+docker exec liquid-playground ls -la /opt/nifi/nifi-current/work/nar/extensions/
+```
+
+### NAR Loading Precedence
+
+NiFi loads NARs from these locations in order of precedence:
+
+1. `/opt/nifi/nifi-current/lib/` (built into Docker image - **highest precedence**)
+2. `/opt/nifi/nifi-current/nar_extensions/` (volume-mounted from `./nar_extensions/`)
+3. `/opt/nifi/nifi-current/work/nar/extensions/` (unpacked NAR cache)
+
+**Best Practice:** Remove old versions from higher-precedence locations when updating NARs:
+
+```bash
+# Remove old NAR from lib directory
+docker exec liquid-playground rm -f /opt/nifi/nifi-current/lib/your-nar-*.nar
+
+# Clear cache for the NAR
+docker exec liquid-playground rm -rf /opt/nifi/nifi-current/work/nar/extensions/your-nar-*
+
+# Restart to load from nar_extensions
+docker restart liquid-playground
+```
+
+### Troubleshooting NAR Deployment
+
+**Problem:** After deploying a new NAR, NiFi still uses the old version
+
+**Solution:** Clear the NAR cache and remove old versions:
+```bash
+docker exec liquid-playground rm -rf /opt/nifi/nifi-current/work/nar/extensions/<nar-name>-*
+docker exec liquid-playground rm -f /opt/nifi/nifi-current/lib/<nar-name>-*.nar
+docker restart liquid-playground
+```
+
+**Problem:** NAR fails to load with ClassNotFoundException
+
+**Solution:** Ensure all dependency NARs are also deployed:
+```bash
+# Check NAR dependencies in the logs
+docker exec liquid-playground grep "Failed to load" /opt/nifi/nifi-current/logs/nifi-app.log
+```
+
+### Managing Node.js Frontends with NiFi Services
+
+Some NiFi controller services (like NodeJS App Gateway) can manage Node.js frontend applications. This requires additional runtime dependencies and port configuration.
+
+#### Installing Bun Runtime
+
+[Bun](https://bun.sh) is a fast JavaScript runtime that can be used to run Next.js and other Node.js applications. To add Bun to your liquid-playground image:
+
+```bash
+./build.sh --post-install-commands "curl -fsSL https://bun.sh/install | bash,cp /root/.bun/bin/bun /usr/local/bin/bun,chmod +x /usr/local/bin/bun"
+```
+
+This will:
+1. Download and install Bun
+2. Make it globally available
+3. Set proper permissions
+
+Alternatively, you can install Node.js instead:
+
+```bash
+./build.sh --system-dependencies "nodejs,npm"
+```
+
+#### Exposing Service Ports
+
+Different NiFi services require different ports to be exposed. Use the `--add-port-mapping` flag with `start.sh`:
+
+**Common Service Ports:**
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| NodeJS App API Gateway | 8888 | HTTP API gateway for Node.js apps |
+| NodeJS App API Gateway (Alt) | 8889 | Alternative gateway port |
+| Frontend Applications | 3000 | Next.js/React dev servers |
+| Admin Interfaces | 5050 | Database admin tools (pgAdmin, etc.) |
+| Custom HTTP Services | 9999 | General purpose HTTP services |
+| Log Viewer | 5050 | Application log viewer |
+
+**Example: Starting with NodeJS App Gateway**
+
+```bash
+# Build image with Bun runtime
+./build.sh --post-install-commands "curl -fsSL https://bun.sh/install | bash,cp /root/.bun/bin/bun /usr/local/bin/bun,chmod +x /usr/local/bin/bun"
+
+# Start with required ports exposed
+./start.sh --add-port-mapping "8888:8888,8889:8889,3000:3000"
+```
+
+**Example: Multiple Services**
+
+```bash
+# Expose ports for gateway, frontend, and log viewer
+./start.sh --add-port-mapping "8888:8888,3000:3000,5050:5050"
+```
+
+#### Service-Specific Configuration
+
+**NodeJS App Gateway Service:**
+- Ports: 8888 (primary), 8889 (secondary)
+- Runtime: Requires Bun or Node.js
+- Purpose: Manages Node.js app lifecycle and HTTP routing
+- Volume mount: Frontend apps in `/files/` directory
+
+**Frontend Applications (Next.js, React, etc.):**
+- Port: 3000 (default dev server)
+- Runtime: Requires Bun or Node.js
+- Managed by: NodeJS App Gateway controller service
+- Location: `/files/<app-name>/` in container
+
+**Important Notes:**
+- Only expose ports that your services actually need
+- Port mappings can be changed anytime by restarting with different `--add-port-mapping` values
+- For production, consider using a reverse proxy instead of exposing all ports directly
 
 ## Advanced Usage
 
