@@ -28,12 +28,10 @@ A Docker-based environment for running Apache NiFi with Python extensions. This 
     - [System Libraries](#system-libraries)
     - [Modifying the Dockerfile Directly](#modifying-the-dockerfile-directly)
     - [Using a Different Base Image](#using-a-different-base-image)
-  - [Mapping Python Extensions](#mapping-python-extensions)
-    - [Using the Default python_extensions Folder](#using-the-default-python_extensions-folder)
-    - [Mounting an Existing Python Processors Folder](#mounting-an-existing-python-processors-folder)
-      - [Using the start.sh Script (Recommended)](#using-the-startsh-script-recommended)
-      - [Manually Modifying docker-compose.yml](#manually-modifying-docker-composeyml)
-    - [Multiple Python Extension Folders](#multiple-python-extension-folders)
+  - [Mapping Extensions](#mapping-extensions)
+    - [Using the Default Folders](#using-the-default-folders)
+    - [Mounting Extensions from Anywhere](#mounting-extensions-from-anywhere)
+    - [Multiple Extension Folders](#multiple-extension-folders)
     - [Using Relative Paths](#using-relative-paths)
   - [Using NiPyGen-Generated Processors](#using-nipygen-generated-processors)
   - [Manual Container Management](#manual-container-management)
@@ -564,41 +562,52 @@ docker build -t nocodenation/liquid-playground:latest .
 Note that changing the base image may require additional modifications to the Dockerfile or scripts to ensure compatibility.
 
 
-### Mapping Python Extensions
+### Mapping Extensions
 
-#### Using the Default python_extensions Folder
+You can add custom extensions to NiFi in two ways:
+- **Python processors** (.py files) - For custom Python-based processors
+- **NAR files** (.nar files) - For custom Java-based components
 
-By default, the `python_extensions` folder in the project root is mounted as a volume to the NiFi container at `/opt/nifi/nifi-current/python_extensions`. You can add your Python processors to this folder, and they will be available in NiFi.
+#### Using the Default Folders
 
-Copy or create your Python processors into the `python_extensions` folder to make them available in NiFi.
+By default, two folders are available:
+- `python_extensions/` - For Python processors
+- `nar_extensions/` - For NAR files
 
-#### Mounting an Existing Python Processors Folder 
+Simply copy your files into these folders and restart the container.
 
-There are two ways to mount existing folders with Python processors:
+#### Mounting Extensions from Anywhere
 
-##### Using the start.sh Script (Recommended)
-
-The easiest way to mount existing folders or files with Python processors is to pass their paths as arguments to the start.sh script:
-
-```bash
-./start.sh /path/to/processor1 /path/to/processor2/ /path/to/processor3.py
-```
-
-This will:
-1. Mount each specified directory or file inside the container's `/opt/nifi/nifi-current/python_extensions/` folder
-2. Use the directory/file name as the mount point name
-3. Make the processors available to NiFi
-
-For example, if you run:
+You can mount Python and NAR files from any location on your computer by passing paths to the start.sh script:
 
 ```bash
-./start.sh /home/user/my_processors /home/user/other_processors/ /home/user/file/Processor.py
+./start.sh /path/to/python_processor /path/to/my-extension.nar
 ```
 
-The directories and files will be mounted as:
-- `/opt/nifi/nifi-current/python_extensions/my_processors`
-- `/opt/nifi/nifi-current/python_extensions/other_processors`
-- `/opt/nifi/nifi-current/python_extensions/Processor.py`
+**The script automatically detects the file type:**
+- Python files (.py) → mounted to Python extensions
+- NAR files (.nar) → mounted to NiFi
+- Folders with Python files → mounted as Python extension folders
+- Folders with NAR files → each NAR file is mounted individually
+
+**Examples:**
+
+```bash
+# Mount a single Python processor
+./start.sh /home/user/MyProcessor.py
+
+# Mount a NAR file
+./start.sh /home/user/my-service.nar
+
+# Mount a folder containing Python processors
+./start.sh /home/user/my_processors
+
+# Mount a folder containing NAR files
+./start.sh /home/user/nar_files
+
+# Mount multiple extensions at once
+./start.sh /path/to/python /path/to/processor.py /path/to/service.nar
+```
 
 ##### Manually Modifying docker-compose.yml
 
