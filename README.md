@@ -288,7 +288,10 @@ This will:
 2. Restart the container.
 3. Re-initialize the configuration from defaults.
 
-## Java NAR Extensions
+
+# --> The following documentation should be part or a README.md in liquid-library, since there the development takes place
+# --> here the only important thing is that the user should place the freshly built nar files into the nar nar_extensions folder
+<!-- ## Java NAR Extensions
 
 Liquid Playground supports custom Java NAR (NiFi Archive) files for extending NiFi with Java-based processors and controller services.
 
@@ -311,13 +314,24 @@ mvn clean package
 # 2. Copy NARs to the nar_extensions directory
 cp target/*.nar /path/to/liquid-playground/nar_extensions/
 
-# 3. Install NARs into the container (requires container to be running)
-docker exec liquid-playground bash -c "cp /opt/nifi/nifi-current/nar_extensions/*.nar /opt/nifi/nifi-current/lib/"
+# 3. Restart the container to automatically deploy NARs
+docker restart liquid-playground
+```
 
-# 4. Clear NAR cache to force reload
-docker exec liquid-playground bash -c "rm -rf /opt/nifi/nifi-current/work/nar/extensions/<nar-name>-*"
+**What happens on startup:**
+- The container's entrypoint script automatically detects NARs in `nar_extensions/`
+- NARs are copied to `/opt/nifi/nifi-current/lib/` before NiFi starts
+- No manual `docker exec` commands required
 
-# 5. Restart the container to load new NARs
+**Updating existing NARs:**
+```bash
+# Copy updated NARs
+cp target/*.nar /path/to/liquid-playground/nar_extensions/
+
+# Clear NAR cache to force reload
+docker exec liquid-playground rm -rf /opt/nifi/nifi-current/work/nar/extensions/<nar-name>-*
+
+# Restart container (entrypoint will deploy NARs automatically)
 docker restart liquid-playground
 ```
 
@@ -396,9 +410,11 @@ docker restart liquid-playground
 ```bash
 # Check NAR dependencies in the logs
 docker exec liquid-playground grep "Failed to load" /opt/nifi/nifi-current/logs/nifi-app.log
-```
+``` -->
 
-### Managing Node.js Frontends with NiFi Services
+
+# --> The following documentation should be part or a README.md in liquid-library, since there the development takes place
+<!-- ### Managing Node.js Frontends with NiFi Services
 
 Some NiFi controller services (like NodeJS App Gateway) can manage Node.js frontend applications. This requires additional runtime dependencies and port configuration.
 
@@ -419,9 +435,10 @@ Alternatively, you can install Node.js instead:
 
 ```bash
 ./build.sh --system-dependencies "nodejs,npm"
-```
+``` -->
 
-#### Exposing Service Ports
+# --> the following service ports are not common, but specific to each service, so the documentation for each service port and how to expose it would go into the README.md of that specific development that makes use of this service port.
+<!-- #### Exposing Service Ports
 
 Different NiFi services require different ports to be exposed. Use the `--add-port-mapping` flag with `start.sh`:
 
@@ -434,7 +451,7 @@ Different NiFi services require different ports to be exposed. Use the `--add-po
 | Frontend Applications | 3000 | Next.js/React dev servers |
 | Admin Interfaces | 5050 | Database admin tools (pgAdmin, etc.) |
 | Custom HTTP Services | 9999 | General purpose HTTP services |
-| Log Viewer | 5050 | Application log viewer |
+| Log Viewer | 5050 | Application log viewer | 
 
 **Example: Starting with NodeJS App Gateway**
 
@@ -471,7 +488,7 @@ Different NiFi services require different ports to be exposed. Use the `--add-po
 - Only expose ports that your services actually need
 - Port mappings can be changed anytime by restarting with different `--add-port-mapping` values
 - For production, consider using a reverse proxy instead of exposing all ports directly
-
+-->
 ## Advanced Usage
 
 ### Adding System Libraries

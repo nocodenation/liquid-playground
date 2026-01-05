@@ -6,6 +6,7 @@
 !build.sh
 !docker-compose.yml
 !Dockerfile
+!entrypoint.sh
 !LICENSE
 !NOTICE
 !README.md
