@@ -6,12 +6,6 @@ RUN apt-get install -y python3 python3-pip
 
 # POST_INSTALL_COMMANDS
 
-# Copy custom NiFi NAR files from files directory if they exist
-COPY --chown=nifi:nifi files/*.nar /opt/nifi/nifi-current/lib/
-
-# Copy application files with correct ownership
-COPY --chown=nifi:nifi files /files
-
 # Copy custom entrypoint script
 COPY --chown=nifi:nifi entrypoint.sh /opt/nifi/scripts/entrypoint.sh
 RUN chmod +x /opt/nifi/scripts/entrypoint.sh
