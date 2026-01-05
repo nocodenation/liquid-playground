@@ -6,6 +6,7 @@
 !build.sh
 !docker-compose.yml
 !Dockerfile
+!entrypoint.sh
 !LICENSE
 !NOTICE
 !README.md
@@ -19,4 +20,5 @@
 !files/dummy.pdf
 !files/dummy.docx
 !python_extensions/
+!nar_extensions/
 !state/

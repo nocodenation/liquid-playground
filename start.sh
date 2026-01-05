@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PYTHON_PROCESSOR_PATHS=()
+EXTENSION_PATHS=()
 SAVE_CREDENTIALS=false
 CLEAR_ALL_FLOWS=false
 CLI_USERNAME=""
@@ -31,7 +31,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     *)
-      PYTHON_PROCESSOR_PATHS+=("$1")
+      EXTENSION_PATHS+=("$1")
       shift
       ;;
   esac
@@ -181,31 +181,97 @@ else
   ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
 fi
 
-# If Python processor paths are provided, add them as volume mounts
-if [ ${#PYTHON_PROCESSOR_PATHS[@]} -gt 0 ]; then
-  echo "Adding Python processor paths as volume mounts..."
+# If extension paths are provided, add them as volume mounts
+if [ ${#EXTENSION_PATHS[@]} -gt 0 ]; then
+  echo "Processing extension paths..."
 
-  # Build the block of lines to insert after the python_extensions mount
-  INSERT_LINES=""
-  for path in "${PYTHON_PROCESSOR_PATHS[@]}"; do
+  # Build the block of lines to insert
+  PYTHON_MOUNTS=""
+  NAR_MOUNTS=""
+
+  for path in "${EXTENSION_PATHS[@]}"; do
     # Remove trailing slash if present
     path=${path%/}
-    # Get the basename of the path to use as the mount point
-    basename=$(basename "$path")
-    # Append the new volume mount line with proper indentation and newline
-    INSERT_LINES+="      - ${path}:/opt/nifi/nifi-current/python_extensions/${basename}:z\n"
+
+    # Check if it's a file or directory
+    if [ -f "$path" ]; then
+      # It's a file - check extension
+      if [[ "$path" == *.py ]]; then
+        # Python file
+        basename=$(basename "$path")
+        PYTHON_MOUNTS+="      - ${path}:/opt/nifi/nifi-current/python_extensions/${basename}:z\n"
+        echo "  - Mounting Python file: $basename"
+      elif [[ "$path" == *.nar ]]; then
+        # NAR file
+        basename=$(basename "$path")
+        NAR_MOUNTS+="      - ${path}:/opt/nifi/nifi-current/lib/${basename}:z\n"
+        echo "  - Mounting NAR file: $basename"
+      else
+        echo "  - WARNING: Skipping unsupported file type: $path"
+      fi
+    elif [ -d "$path" ]; then
+      # It's a directory - check contents
+      basename=$(basename "$path")
+      has_python=false
+      has_nar=false
+
+      # Check for Python files
+      if find "$path" -maxdepth 1 -name "*.py" -print -quit | grep -q .; then
+        has_python=true
+      fi
+
+      # Check for NAR files
+      if find "$path" -maxdepth 1 -name "*.nar" -print -quit | grep -q .; then
+        has_nar=true
+      fi
+
+      if [ "$has_python" = true ] && [ "$has_nar" = false ]; then
+        # Directory with Python files
+        PYTHON_MOUNTS+="      - ${path}:/opt/nifi/nifi-current/python_extensions/${basename}:z\n"
+        echo "  - Mounting Python directory: $basename"
+      elif [ "$has_nar" = true ]; then
+        # Directory with NAR files - mount each NAR individually
+        echo "  - Mounting NAR files from directory: $basename"
+        for nar_file in "$path"/*.nar; do
+          if [ -f "$nar_file" ]; then
+            nar_basename=$(basename "$nar_file")
+            NAR_MOUNTS+="      - ${nar_file}:/opt/nifi/nifi-current/lib/${nar_basename}:z\n"
+            echo "    - $nar_basename"
+          fi
+        done
+      else
+        echo "  - WARNING: Skipping directory with no Python or NAR files: $path"
+      fi
+    else
+      echo "  - WARNING: Path not found: $path"
+    fi
   done
 
-  # Use awk to insert the constructed lines immediately after the python_extensions entry
-  awk -v insert="$INSERT_LINES" '
-    inserted==0 && $0 ~ /^[[:space:]]*- \.\/python_extensions:\/opt\/nifi\/nifi-current\/python_extensions:z$/ {
-      print;
-      printf "%s", insert;
-      inserted=1;
-      next
-    }
-    { print }
-  ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
+  # Insert Python mounts after the python_extensions entry
+  if [ -n "$PYTHON_MOUNTS" ]; then
+    awk -v insert="$PYTHON_MOUNTS" '
+      inserted==0 && $0 ~ /^[[:space:]]*- \.\/python_extensions:\/opt\/nifi\/nifi-current\/python_extensions:z$/ {
+        print;
+        printf "%s", insert;
+        inserted=1;
+        next
+      }
+      { print }
+    ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
+  fi
+
+  # Insert NAR mounts after the nar_extensions entry
+  if [ -n "$NAR_MOUNTS" ]; then
+    awk -v insert="$NAR_MOUNTS" '
+      inserted==0 && $0 ~ /^[[:space:]]*- \.\/nar_extensions:\/opt\/nifi\/nifi-current\/nar_extensions:z$/ {
+        print;
+        printf "%s", insert;
+        inserted=1;
+        next
+      }
+      { print }
+    ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
+  fi
 fi
 
 # If additional port mappings are provided, add them to the docker-compose file
