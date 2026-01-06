@@ -117,6 +117,9 @@ mkdir -p "$STATE_DIR/content_repository"
 mkdir -p "$STATE_DIR/provenance_repository"
 mkdir -p "$STATE_DIR/run" # For Process ID
 
+# Create SSL certificates directory if it doesn't exist
+mkdir -p "./ssl_certificates"
+
 # Initialize configuration if empty (Bootstrap Persistence)
 if [ -z "$(ls -A "$STATE_DIR/conf")" ]; then
     echo "Initializing persistent configuration..."
@@ -165,6 +168,7 @@ if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
       print "      - ./state/flowfile_repository:/opt/nifi/nifi-current/flowfile_repository:z"
       print "      - ./state/content_repository:/opt/nifi/nifi-current/content_repository:z"
       print "      - ./state/provenance_repository:/opt/nifi/nifi-current/provenance_repository:z"
+      print "      - ./ssl_certificates:/opt/nifi/nifi-current/ssl:z"
     }
   ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
 else
@@ -177,6 +181,7 @@ else
       print "      - ./state/flowfile_repository:/opt/nifi/nifi-current/flowfile_repository:z"
       print "      - ./state/content_repository:/opt/nifi/nifi-current/content_repository:z"
       print "      - ./state/provenance_repository:/opt/nifi/nifi-current/provenance_repository:z"
+      print "      - ./ssl_certificates:/opt/nifi/nifi-current/ssl:z"
     }
   ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
 fi
