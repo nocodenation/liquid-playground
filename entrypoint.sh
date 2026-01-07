@@ -27,4 +27,7 @@ fi
 
 # Execute the original NiFi start script
 echo "🔧 Starting NiFi..."
-exec ./start.sh "$@"
+exec /opt/nifi/scripts/start.sh "$@"
+
+#/opt/nifi/scripts/start.sh & start_sh_pid="$!"
+#wait ${start_sh_pid}
