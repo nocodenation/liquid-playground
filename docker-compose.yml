@@ -5,7 +5,6 @@ services:
     volumes:
       - ./files:/files:z
       - ./python_extensions:/opt/nifi/nifi-current/python_extensions:z
-      - ./state:/opt/nifi/nifi-current/state:z
       - ./nar_extensions:/opt/nifi/nifi-current/nar_extensions:z
     ports:
       - "8443:8443"

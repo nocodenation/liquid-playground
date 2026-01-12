@@ -14,7 +14,6 @@ CLI_USERNAME="${NIFI_USERNAME:-}"
 CLI_PASSWORD="${NIFI_PASSWORD:-}"
 ADDITIONAL_PORT_MAPPINGS="${ADDITIONAL_PORT_MAPPINGS:-}"
 ADDITIONAL_EXTENSION_PATHS_STR="${ADDITIONAL_EXTENSION_PATHS:-}"
-ENVIRONMENT_VARIABLES="${ENVIRONMENT_VARIABLES:-}"
 
 # Parse ADDITIONAL_EXTENSION_PATHS from comma-separated string to array
 ADDITIONAL_EXTENSION_PATHS=()
@@ -78,7 +77,7 @@ rm -f "$TEMP_ENV_FILE"
 
 # Determine if we need an env file (for credentials or environment variables)
 NEED_ENV_FILE=false
-if [ "$USE_CUSTOM_CREDENTIALS" = true ] || [ -n "$ENVIRONMENT_VARIABLES" ]; then
+if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
   NEED_ENV_FILE=true
 fi
 
@@ -91,19 +90,6 @@ if [ "$NEED_ENV_FILE" = true ]; then
     echo "SINGLE_USER_CREDENTIALS_USERNAME=$EFFECTIVE_USERNAME" >> "$TEMP_ENV_FILE"
     echo "SINGLE_USER_CREDENTIALS_PASSWORD=$EFFECTIVE_PASSWORD" >> "$TEMP_ENV_FILE"
     echo "Configuring container to use provided credentials..."
-  fi
-  
-  # Add environment variables from ENVIRONMENT_VARIABLES
-  if [ -n "$ENVIRONMENT_VARIABLES" ]; then
-    echo "Adding environment variables to container..."
-    IFS=',' read -r -a __ENV_VARS <<< "$ENVIRONMENT_VARIABLES"
-    for env_var in "${__ENV_VARS[@]}"; do
-      # Trim whitespace
-      trimmed=$(echo "$env_var" | xargs)
-      if [ -n "$trimmed" ]; then
-        echo "$trimmed" >> "$TEMP_ENV_FILE"
-      fi
-    done
   fi
   
   # Add env_file to docker-compose
@@ -127,6 +113,7 @@ if [ "$PERSIST_NIFI_STATE" = true ]; then
       print "      - ./nifi_state/flowfile_repository:/opt/nifi/nifi-current/flowfile_repository:z"
       print "      - ./nifi_state/content_repository:/opt/nifi/nifi-current/content_repository:z"
       print "      - ./nifi_state/provenance_repository:/opt/nifi/nifi-current/provenance_repository:z"
+      print "      - ./nifi_state/state:/opt/nifi/nifi-current/state:z"
     }
   ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
 fi

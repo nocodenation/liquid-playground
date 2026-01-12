@@ -80,6 +80,62 @@ if [ -n "$POST_INSTALLATION_COMMANDS" ]; then
     ' Dockerfile.tmp > Dockerfile.tmp.__new && mv Dockerfile.tmp.__new Dockerfile.tmp
 fi
 
+# Extract ENVIRONMENT_VARIABLES from .env without evaluation (preserve literal values like $PATH)
+# Note: $$ is used in .env to escape $ for docker compose, so we convert $$ back to $ here
+RAW_ENVIRONMENT_VARIABLES=""
+if [ -f .env ]; then
+    RAW_ENVIRONMENT_VARIABLES=$(grep -E '^ENVIRONMENT_VARIABLES=' .env | head -n 1 | sed 's/^ENVIRONMENT_VARIABLES=//' | sed 's/^"\(.*\)"$/\1/' | sed "s/^'\(.*\)'$/\1/" | sed 's/\$\$/$/g')
+fi
+
+# If environment variables are provided, inject export statements into ~/.bashrc
+if [ -n "$RAW_ENVIRONMENT_VARIABLES" ]; then
+    echo "Adding environment variables to image's ~/.bashrc..."
+    
+    # Build the block of RUN commands to append exports to /root/.bashrc
+    ENV_EXPORTS_BLOCK=""
+    
+    # Parse comma-separated key=value pairs
+    # First, convert escaped quotes to a placeholder, then split on comma, then restore
+    # Replace \" with a placeholder that won't appear in normal values
+    placeholder=$'\x01'
+    normalized=$(echo "$RAW_ENVIRONMENT_VARIABLES" | sed "s/\\\\\"/$placeholder/g")
+    
+    IFS=',' read -r -a __ENV_VARS <<< "$normalized"
+    for env_var in "${__ENV_VARS[@]}"; do
+        # Trim whitespace
+        env_var=$(echo "$env_var" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        
+        # Restore escaped quotes (placeholder back to regular quotes)
+        env_var=$(echo "$env_var" | sed "s/$placeholder/\"/g")
+        
+        if [ -n "$env_var" ]; then
+            # Remove surrounding quotes from the value part if present
+            # e.g., VAR="value" -> VAR=value for the export
+            env_var=$(echo "$env_var" | sed 's/="\(.*\)"$/=\1/' | sed "s/='\(.*\)'$/=\1/")
+            
+            # Escape single quotes for use in the echo command (replace ' with '\''
+            escaped_for_echo=$(echo "$env_var" | sed "s/'/'\\\\''/g")
+            
+            ENV_EXPORTS_BLOCK+="RUN echo 'export $escaped_for_echo' >> /root/.bashrc\n"
+            ENV_EXPORTS_BLOCK+="RUN echo 'export $escaped_for_echo' >> /home/nifi/.bashrc\n"
+            echo "  - Adding: export $env_var"
+        fi
+    done
+    
+    # Insert the block right after the ENVIRONMENT_VARIABLES_EXPORTS marker
+    if [ -n "$ENV_EXPORTS_BLOCK" ]; then
+        awk -v block="$ENV_EXPORTS_BLOCK" '
+          {
+            print $0
+            if ($0 ~ /# ENVIRONMENT_VARIABLES_EXPORTS/) {
+              n = split(block, lines, "\\n");
+              for (i = 1; i <= n; i++) if (length(lines[i]) > 0) print lines[i];
+            }
+          }
+        ' Dockerfile.tmp > Dockerfile.tmp.__new && mv Dockerfile.tmp.__new Dockerfile.tmp
+    fi
+fi
+
 # Stop existing container if it's running
 docker compose down
 
@@ -133,7 +189,8 @@ if [ "$PERSIST_NIFI_STATE" = true ]; then
                     cp -r /opt/nifi/nifi-current/database_repository /target/ && \
                     cp -r /opt/nifi/nifi-current/flowfile_repository /target/ && \
                     cp -r /opt/nifi/nifi-current/content_repository /target/ && \
-                    cp -r /opt/nifi/nifi-current/provenance_repository /target/"
+                    cp -r /opt/nifi/nifi-current/provenance_repository /target/ && \
+                    cp -r /opt/nifi/nifi-current/state /target/"
             
             echo "State folder created successfully."
         fi
@@ -151,7 +208,8 @@ if [ "$PERSIST_NIFI_STATE" = true ]; then
                 cp -r /opt/nifi/nifi-current/database_repository /target/ && \
                 cp -r /opt/nifi/nifi-current/flowfile_repository /target/ && \
                 cp -r /opt/nifi/nifi-current/content_repository /target/ && \
-                cp -r /opt/nifi/nifi-current/provenance_repository /target/"
+                cp -r /opt/nifi/nifi-current/provenance_repository /target/ && \
+                cp -r /opt/nifi/nifi-current/state /target/"
         
         echo "State folder created successfully."
     fi
