@@ -87,10 +87,10 @@ POST_INSTALLATION_COMMANDS="playwright install-deps, ls -la /"
 ### Starting the Container
 Now when we have an image with necessary libraries installed, we can start the container with the processor.
 
-Set the `EXTENSION_PATHS` variable in your `.env` file to mount the example processor:
+Set the `ADDITIONAL_EXTENSION_PATHS` variable in your `.env` file to mount the example processor:
 
 ```bash
-EXTENSION_PATHS="./example/ParseDocument"
+ADDITIONAL_EXTENSION_PATHS="./example/ParseDocument"
 ```
 
 Then run the start script:
@@ -205,14 +205,14 @@ If these variables are not set, NiFi will auto-generate credentials on startup.
  
 #### Mounting Extensions
  
-You can mount Python processors and NAR files by setting the `EXTENSION_PATHS` variable in your `.env` file:
+You can mount Python processors and NAR files by setting the `ADDITIONAL_EXTENSION_PATHS` variable in your `.env` file:
  
 ```bash
 # Mount a single processor directory
-EXTENSION_PATHS="./example/ParseDocument"
+ADDITIONAL_EXTENSION_PATHS="./example/ParseDocument"
 
 # Mount multiple extensions (comma-separated)
-EXTENSION_PATHS="/path/to/processor1, /path/to/processor2, /path/to/my-extension.nar"
+ADDITIONAL_EXTENSION_PATHS="/path/to/processor1, /path/to/processor2, /path/to/my-extension.nar"
 ```
  
 The script automatically detects the file type:

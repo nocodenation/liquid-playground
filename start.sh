@@ -13,16 +13,16 @@ PERSIST_NIFI_STATE="${PERSIST_NIFI_STATE:-false}"
 CLI_USERNAME="${NIFI_USERNAME:-}"
 CLI_PASSWORD="${NIFI_PASSWORD:-}"
 ADDITIONAL_PORT_MAPPINGS="${ADDITIONAL_PORT_MAPPINGS:-}"
-EXTENSION_PATHS_STR="${EXTENSION_PATHS:-}"
+ADDITIONAL_EXTENSION_PATHS_STR="${ADDITIONAL_EXTENSION_PATHS:-}"
 
-# Parse EXTENSION_PATHS from comma-separated string to array
-EXTENSION_PATHS=()
-if [ -n "$EXTENSION_PATHS_STR" ]; then
-    IFS=',' read -r -a __PATHS <<< "$EXTENSION_PATHS_STR"
+# Parse ADDITIONAL_EXTENSION_PATHS from comma-separated string to array
+ADDITIONAL_EXTENSION_PATHS=()
+if [ -n "$ADDITIONAL_EXTENSION_PATHS_STR" ]; then
+    IFS=',' read -r -a __PATHS <<< "$ADDITIONAL_EXTENSION_PATHS_STR"
     for p in "${__PATHS[@]}"; do
         trimmed=$(echo "$p" | xargs)
         if [ -n "$trimmed" ]; then
-            EXTENSION_PATHS+=("$trimmed")
+            ADDITIONAL_EXTENSION_PATHS+=("$trimmed")
         fi
     done
 fi
@@ -106,14 +106,14 @@ if [ "$PERSIST_NIFI_STATE" = true ]; then
 fi
 
 # If extension paths are provided, add them as volume mounts
-if [ ${#EXTENSION_PATHS[@]} -gt 0 ]; then
+if [ ${#ADDITIONAL_EXTENSION_PATHS[@]} -gt 0 ]; then
   echo "Processing extension paths..."
 
   # Build the block of lines to insert
   PYTHON_MOUNTS=""
   NAR_MOUNTS=""
 
-  for path in "${EXTENSION_PATHS[@]}"; do
+  for path in "${ADDITIONAL_EXTENSION_PATHS[@]}"; do
     # Remove trailing slash if present
     path=${path%/}
 
