@@ -6,6 +6,8 @@ RUN apt-get install -y python3 python3-pip
 
 # POST_INSTALL_COMMANDS
 
+# ENVIRONMENT_VARIABLES
+
 # Copy custom entrypoint script
 COPY --chown=nifi:nifi ./entrypoint.sh /opt/nifi/scripts/entrypoint.sh
 RUN chmod 775 /opt/nifi/scripts/entrypoint.sh
