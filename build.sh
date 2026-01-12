@@ -11,7 +11,6 @@ fi
 # Use environment variables (with defaults if not set)
 SYSTEM_DEPENDENCIES="${SYSTEM_DEPENDENCIES:-}"
 POST_INSTALLATION_COMMANDS="${POST_INSTALLATION_COMMANDS:-}"
-ENVIRONMENT_VARIABLES="${ENVIRONMENT_VARIABLES:-}"
 PERSIST_NIFI_STATE="${PERSIST_NIFI_STATE:-false}"
 
 # Convert PERSIST_NIFI_STATE to boolean-like behavior
@@ -81,31 +80,6 @@ if [ -n "$POST_INSTALLATION_COMMANDS" ]; then
     ' Dockerfile.tmp > Dockerfile.tmp.__new && mv Dockerfile.tmp.__new Dockerfile.tmp
 fi
 
-# If environment variables provided, inject them under the marker in Dockerfile
-if [ -n "$ENVIRONMENT_VARIABLES" ]; then
-    # Build the block of ENV statements from comma-separated list
-    IFS=',' read -r -a __ENVS <<< "$ENVIRONMENT_VARIABLES"
-    ENV_BLOCK=""
-    for e in "${__ENVS[@]}"; do
-        # trim whitespace around the variable
-        trimmed=$(echo "$e" | xargs)
-        if [ -n "$trimmed" ]; then
-            ENV_BLOCK+="ENV $trimmed\n"
-        fi
-    done
-
-    # Insert the block right after the line that has the marker
-    awk -v block="$ENV_BLOCK" '
-      {
-        print $0
-        if ($0 ~ /# ENVIRONMENT_VARIABLES/) {
-          n = split(block, lines, "\\n");
-          for (i = 1; i <= n; i++) if (length(lines[i]) > 0) print lines[i];
-        }
-      }
-    ' Dockerfile.tmp > Dockerfile.tmp.__new && mv Dockerfile.tmp.__new Dockerfile.tmp
-fi
-
 # Stop existing container if it's running
 docker compose down
 
@@ -127,7 +101,7 @@ rm Dockerfile.tmp
 
 # Handle PERSIST_NIFI_STATE - create state folder and copy directories from image
 if [ "$PERSIST_NIFI_STATE" = true ]; then
-    STATE_DIR="./state"
+    STATE_DIR="./nifi_state"
     
     # Check if state folder already exists
     if [ -d "$STATE_DIR" ]; then

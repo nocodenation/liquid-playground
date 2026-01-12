@@ -96,11 +96,11 @@ if [ "$PERSIST_NIFI_STATE" = true ]; then
   awk '
     { print }
     $0 ~ /volumes:/ {
-      print "      - ./state/conf:/opt/nifi/nifi-current/conf:z"
-      print "      - ./state/database_repository:/opt/nifi/nifi-current/database_repository:z"
-      print "      - ./state/flowfile_repository:/opt/nifi/nifi-current/flowfile_repository:z"
-      print "      - ./state/content_repository:/opt/nifi/nifi-current/content_repository:z"
-      print "      - ./state/provenance_repository:/opt/nifi/nifi-current/provenance_repository:z"
+      print "      - ./nifi_state/conf:/opt/nifi/nifi-current/conf:z"
+      print "      - ./nifi_state/database_repository:/opt/nifi/nifi-current/database_repository:z"
+      print "      - ./nifi_state/flowfile_repository:/opt/nifi/nifi-current/flowfile_repository:z"
+      print "      - ./nifi_state/content_repository:/opt/nifi/nifi-current/content_repository:z"
+      print "      - ./nifi_state/provenance_repository:/opt/nifi/nifi-current/provenance_repository:z"
     }
   ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
 fi
