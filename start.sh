@@ -1,137 +1,65 @@
 #!/bin/bash
 
-EXTENSION_PATHS=()
-SAVE_CREDENTIALS=false
-CLEAR_ALL_FLOWS=false
-CLI_USERNAME=""
-CLI_PASSWORD=""
-ADDITIONAL_PORT_MAPPINGS=""
-
-# Parse arguments
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    -s|--save-credentials)
-      SAVE_CREDENTIALS=true
-      shift
-      ;;
-    -c|--clear-all-flows)
-      CLEAR_ALL_FLOWS=true
-      shift
-      ;;
-    -u|--username)
-      CLI_USERNAME="$2"
-      shift 2
-      ;;
-    -p|--password)
-      CLI_PASSWORD="$2"
-      shift 2
-      ;;
-    --add-port-mapping)
-      ADDITIONAL_PORT_MAPPINGS="$2"
-      shift 2
-      ;;
-    *)
-      EXTENSION_PATHS+=("$1")
-      shift
-      ;;
-  esac
-done
-
-# Handle legacy credentials file
-if [ -f .nifi_credentials ] && [ ! -f .credentials ]; then
-    echo "Renaming .nifi_credentials to .credentials..."
-    mv .nifi_credentials .credentials
+# Load environment variables from .env file if it exists
+if [ -f .env ]; then
+    # Export variables from .env file, ignoring comments and empty lines
+    set -a
+    source .env
+    set +a
 fi
 
-CREDENTIALS_FILE=".credentials"
+# Use environment variables (with defaults if not set)
+PERSIST_NIFI_STATE="${PERSIST_NIFI_STATE:-false}"
+CLI_USERNAME="${NIFI_USERNAME:-}"
+CLI_PASSWORD="${NIFI_PASSWORD:-}"
+ADDITIONAL_PORT_MAPPINGS="${ADDITIONAL_PORT_MAPPINGS:-}"
+EXTENSION_PATHS_STR="${EXTENSION_PATHS:-}"
+
+# Parse EXTENSION_PATHS from comma-separated string to array
+EXTENSION_PATHS=()
+if [ -n "$EXTENSION_PATHS_STR" ]; then
+    IFS=',' read -r -a __PATHS <<< "$EXTENSION_PATHS_STR"
+    for p in "${__PATHS[@]}"; do
+        trimmed=$(echo "$p" | xargs)
+        if [ -n "$trimmed" ]; then
+            EXTENSION_PATHS+=("$trimmed")
+        fi
+    done
+fi
+
+# Convert string values to boolean-like behavior
+if [ "$PERSIST_NIFI_STATE" = "true" ]; then
+    PERSIST_NIFI_STATE=true
+else
+    PERSIST_NIFI_STATE=false
+fi
+
 EFFECTIVE_USERNAME=""
 EFFECTIVE_PASSWORD=""
 USE_CUSTOM_CREDENTIALS=false
-CREDENTIALS_SOURCE=""
 
-# 1. Check CLI Arguments
+# Check Environment Variables (CLI_USERNAME and CLI_PASSWORD from .env)
 if [ -n "$CLI_USERNAME" ] && [ -n "$CLI_PASSWORD" ]; then
     if [ ${#CLI_PASSWORD} -ge 12 ]; then
         EFFECTIVE_USERNAME="$CLI_USERNAME"
         EFFECTIVE_PASSWORD="$CLI_PASSWORD"
         USE_CUSTOM_CREDENTIALS=true
-        CREDENTIALS_SOURCE="CLI"
-        echo "Using credentials provided via command line."
+        echo "Using credentials provided via environment variables."
     else
-        echo "WARNING: Command line password is too short (<12 chars). NiFi would reject it."
-        echo "         Ignoring CLI credentials."
+        echo "WARNING: Environment variable password is too short (<12 chars). NiFi would reject it."
+        echo "         Ignoring environment credentials."
     fi
 elif [ -n "$CLI_USERNAME" ] || [ -n "$CLI_PASSWORD" ]; then
-    echo "WARNING: Both username and password must be provided via command line. Ignoring partial input."
-fi
-
-# 2. Check File (if not already set by CLI)
-if [ "$USE_CUSTOM_CREDENTIALS" = false ] && [ -f "$CREDENTIALS_FILE" ]; then
-  file_username=$(grep "SINGLE_USER_CREDENTIALS_USERNAME" "$CREDENTIALS_FILE" | cut -d= -f2 | tr -d '\r')
-  file_password=$(grep "SINGLE_USER_CREDENTIALS_PASSWORD" "$CREDENTIALS_FILE" | cut -d= -f2 | tr -d '\r')
-  
-  if [ -n "$file_username" ] && [ -n "$file_password" ]; then
-      if [ ${#file_password} -ge 12 ]; then
-          EFFECTIVE_USERNAME="$file_username"
-          EFFECTIVE_PASSWORD="$file_password"
-          USE_CUSTOM_CREDENTIALS=true
-          CREDENTIALS_SOURCE="FILE"
-          echo "Found valid credentials in $CREDENTIALS_FILE."
-      else
-          echo "WARNING: Found $CREDENTIALS_FILE but password is too short (<12 chars)."
-          echo "         Ignoring file."
-      fi
-  else
-      echo "WARNING: Found $CREDENTIALS_FILE but username or password is missing."
-      echo "         Ignoring file."
-  fi
+    echo "WARNING: Both NIFI_USERNAME and NIFI_PASSWORD must be provided via environment. Ignoring partial input."
 fi
 
 if [ "$USE_CUSTOM_CREDENTIALS" = false ]; then
-    echo "No valid custom credentials found. NiFi will generate new credentials."
-    CREDENTIALS_SOURCE="GENERATED"
+    echo "No custom credentials found. NiFi will generate new credentials."
 fi
 
 # Stop any existing container
 echo "Stopping any existing container..."
 docker compose down
-
-# Handle persistence state
-STATE_DIR="./state"
-
-if [ "$CLEAR_ALL_FLOWS" = true ]; then
-    echo "Clearing all persisted flows and state..."
-    if [ -d "$STATE_DIR" ]; then
-        rm -rf "$STATE_DIR"
-        echo "State directory deleted."
-    else
-        echo "No state directory found to clear."
-    fi
-fi
-
-# Create state directories if they don't exist
-mkdir -p "$STATE_DIR/conf"
-mkdir -p "$STATE_DIR/database_repository"
-mkdir -p "$STATE_DIR/flowfile_repository"
-mkdir -p "$STATE_DIR/content_repository"
-mkdir -p "$STATE_DIR/provenance_repository"
-mkdir -p "$STATE_DIR/run" # For Process ID
-
-# Initialize configuration if empty (Bootstrap Persistence)
-if [ -z "$(ls -A "$STATE_DIR/conf")" ]; then
-    echo "Initializing persistent configuration..."
-    # Run a temporary container to copy default config
-    docker run --rm \
-        -v "$(pwd)/$STATE_DIR/conf":/target \
-        --entrypoint /bin/bash \
-        nocodenation/liquid-playground:latest \
-        -c "cp -r /opt/nifi/nifi-current/conf/* /target/"
-    echo "Configuration initialized."
-fi
-
-# Ensure permissions (Docker user is usually 1000:1000 for NiFi image)
-# We use a broad chmod here to avoid permission issues on mounts
-chmod -R 777 "$STATE_DIR"
 
 # Check if the image exists
 echo "Checking if the Docker image exists..."
@@ -159,16 +87,12 @@ if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
       print "    env_file:"
       print "      - " env_file
     }
-    $0 ~ /volumes:/ {
-      print "      - ./state/conf:/opt/nifi/nifi-current/conf:z"
-      print "      - ./state/database_repository:/opt/nifi/nifi-current/database_repository:z"
-      print "      - ./state/flowfile_repository:/opt/nifi/nifi-current/flowfile_repository:z"
-      print "      - ./state/content_repository:/opt/nifi/nifi-current/content_repository:z"
-      print "      - ./state/provenance_repository:/opt/nifi/nifi-current/provenance_repository:z"
-    }
   ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
-else
-  # No credentials file, but we still need to add persistence volumes
+fi
+
+# Add persistence volume mounts if PERSIST_NIFI_STATE is true
+if [ "$PERSIST_NIFI_STATE" = true ]; then
+  echo "Adding persistence volume mounts..."
   awk '
     { print }
     $0 ~ /volumes:/ {
@@ -282,8 +206,8 @@ if [ -n "$ADDITIONAL_PORT_MAPPINGS" ]; then
   INSERT_LINES=""
   IFS=',' read -ra PORTS <<< "$ADDITIONAL_PORT_MAPPINGS"
   for port_mapping in "${PORTS[@]}"; do
-    # Remove surrounding quotes if present
-    port_mapping=$(echo "$port_mapping" | sed 's/^"//;s/"$//')
+    # Remove surrounding quotes if present and trim whitespace
+    port_mapping=$(echo "$port_mapping" | sed 's/^"//;s/"$//' | xargs)
     INSERT_LINES+="      - \"${port_mapping}\"\n"
   done
 
@@ -312,20 +236,11 @@ while true; do
     echo "NiFi has started successfully!"
 
     if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
-      echo "Using credentials from $CREDENTIALS_SOURCE:"
+      echo "Using credentials from environment variables:"
       echo ""
       echo "Username: $EFFECTIVE_USERNAME"
       echo "Password: $EFFECTIVE_PASSWORD"
       echo ""
-      
-      # If CLI was source and save requested, save them
-      if [ "$CREDENTIALS_SOURCE" == "CLI" ] && [ "$SAVE_CREDENTIALS" = true ]; then
-          echo "Saving provided credentials to $CREDENTIALS_FILE..."
-          echo "SINGLE_USER_CREDENTIALS_USERNAME=$EFFECTIVE_USERNAME" > "$CREDENTIALS_FILE"
-          echo "SINGLE_USER_CREDENTIALS_PASSWORD=$EFFECTIVE_PASSWORD" >> "$CREDENTIALS_FILE"
-          echo "Credentials saved."
-          echo ""
-      fi
     else
       # Generated
       echo "Extracting generated credentials..."
@@ -335,14 +250,6 @@ while true; do
       echo "Username: $username"
       echo "Password: $password"
       echo ""
-      
-      if [ "$SAVE_CREDENTIALS" = true ]; then
-          echo "Saving generated credentials to $CREDENTIALS_FILE..."
-          echo "SINGLE_USER_CREDENTIALS_USERNAME=$username" > "$CREDENTIALS_FILE"
-          echo "SINGLE_USER_CREDENTIALS_PASSWORD=$password" >> "$CREDENTIALS_FILE"
-          echo "Credentials saved."
-          echo ""
-      fi
     fi
 
     echo "Use these credentials to access NiFi: https://localhost:8443/nifi"

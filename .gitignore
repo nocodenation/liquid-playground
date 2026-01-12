@@ -13,6 +13,7 @@
 !start.sh
 !stop.sh
 !logs.sh
+!env.example
 
 # ...and not these directories
 !example/

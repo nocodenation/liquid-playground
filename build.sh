@@ -1,32 +1,26 @@
 #!/bin/bash
 
-# Parse arguments
-# - --system-dependencies accepts a comma-separated list of apt packages
-# - --post-installation-commands accepts a comma-separated list of shell commands
-SYSTEM_DEPENDENCIES=""
-POST_INSTALLATION_COMMANDS=""
+# Load environment variables from .env file if it exists
+if [ -f .env ]; then
+    # Export variables from .env file, ignoring comments and empty lines
+    set -a
+    source .env
+    set +a
+fi
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --system-dependencies)
-      shift
-      SYSTEM_DEPENDENCIES="${1:-}"
-      shift || true
-      ;;
-    --post-installation-commands)
-      shift
-      POST_INSTALLATION_COMMANDS="${1:-}"
-      shift || true
-      ;;
-    *)
-      echo "Unknown option or positional argument not supported: $1" >&2
-      echo "Usage: $0 [--system-dependencies \"pkg1, pkg2\"] [--post-installation-commands \"cmd1, cmd2\"]" >&2
-      exit 1
-      ;;
-  esac
-done
+# Use environment variables (with defaults if not set)
+SYSTEM_DEPENDENCIES="${SYSTEM_DEPENDENCIES:-}"
+POST_INSTALLATION_COMMANDS="${POST_INSTALLATION_COMMANDS:-}"
+PERSIST_NIFI_STATE="${PERSIST_NIFI_STATE:-false}"
 
-# Build the final list of additional packages from --system-dependencies
+# Convert PERSIST_NIFI_STATE to boolean-like behavior
+if [ "$PERSIST_NIFI_STATE" = "true" ]; then
+    PERSIST_NIFI_STATE=true
+else
+    PERSIST_NIFI_STATE=false
+fi
+
+# Build the final list of additional packages from SYSTEM_DEPENDENCIES
 ADDITIONAL_PACKAGES_STR=""
 if [ -n "$SYSTEM_DEPENDENCIES" ]; then
     IFS=',' read -r -a __DEPS <<< "$SYSTEM_DEPENDENCIES"
@@ -104,3 +98,61 @@ docker build -t nocodenation/liquid-playground:latest -f Dockerfile.tmp --platfo
 
 # Clean up the temporary Dockerfile
 rm Dockerfile.tmp
+
+# Handle PERSIST_NIFI_STATE - create state folder and copy directories from image
+if [ "$PERSIST_NIFI_STATE" = true ]; then
+    STATE_DIR="./state"
+    
+    # Check if state folder already exists
+    if [ -d "$STATE_DIR" ]; then
+        echo ""
+        echo "State folder already exists at $STATE_DIR"
+        read -p "Do you want to overwrite its contents? (y/N): " confirm
+        if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+            echo "Skipping state folder creation."
+        else
+            echo "Removing existing state folder..."
+            # Removing state folder requires sudo if not running as root
+            if [ "$(id -u)" != "0" ]; then
+                echo "Root privileges required to remove state folder."
+                sudo rm -rf "$STATE_DIR"
+            else
+                rm -rf "$STATE_DIR"
+            fi
+            
+            echo "Creating state folder and copying directories from image..."
+            mkdir -p "$STATE_DIR"
+            chmod 777 "$STATE_DIR"
+            
+            # Run a temporary container to copy directories
+            docker run --rm \
+                -v "$(pwd)/$STATE_DIR":/target \
+                --entrypoint /bin/bash \
+                nocodenation/liquid-playground:latest \
+                -c "cp -r /opt/nifi/nifi-current/conf /target/ && \
+                    cp -r /opt/nifi/nifi-current/database_repository /target/ && \
+                    cp -r /opt/nifi/nifi-current/flowfile_repository /target/ && \
+                    cp -r /opt/nifi/nifi-current/content_repository /target/ && \
+                    cp -r /opt/nifi/nifi-current/provenance_repository /target/"
+            
+            echo "State folder created successfully."
+        fi
+    else
+        echo "Creating state folder and copying directories from image..."
+        mkdir -p "$STATE_DIR"
+        chmod 777 "$STATE_DIR"
+        
+        # Run a temporary container to copy directories
+        docker run --rm \
+            -v "$(pwd)/$STATE_DIR":/target \
+            --entrypoint /bin/bash \
+            nocodenation/liquid-playground:latest \
+            -c "cp -r /opt/nifi/nifi-current/conf /target/ && \
+                cp -r /opt/nifi/nifi-current/database_repository /target/ && \
+                cp -r /opt/nifi/nifi-current/flowfile_repository /target/ && \
+                cp -r /opt/nifi/nifi-current/content_repository /target/ && \
+                cp -r /opt/nifi/nifi-current/provenance_repository /target/"
+        
+        echo "State folder created successfully."
+    fi
+fi
