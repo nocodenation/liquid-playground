@@ -37,63 +37,21 @@ A Docker-based environment for running Apache NiFi with Python extensions. This 
 - [Docker Compose](https://docs.docker.com/compose/install/)
 
 
-## Quick Guide
+## Quick Start
 
-This repository contains an example Python processor that can be used to test the Liquid Playground environment.
-
-It is located in the `example/ParseDocument` directory.
-
-> Note: This processor is not production ready and should not be used in a production environment.
- 
-In this guide, we will show you how the Playground environment can be used to experiment with Python processors.
-
-### Building the Image
-
-The `ExampleProcessor` uses [Google's Tesseract OCR](https://github.com/tesseract-ocr/tesseract) Engine to extract text
-from PDF files. That means our NiFi image must have Tesseract OCR libraries installed.
-
-To build the Playground image with Tesseract installed, first configure your `.env` file:
+To run barebones playground with default NiFi configuration: 
 
 1. Copy the example environment file:
 ```bash
 cp env.example .env
 ```
 
-2. Edit `.env` and set the `SYSTEM_DEPENDENCIES` variable:
-```bash
-SYSTEM_DEPENDENCIES="tesseract-ocr, tesseract-ocr-eng, libtesseract-dev, libleptonica-dev, pkg-config"
-```
-
-3. Run the build script:
+2. Run the build script:
 ```bash
 ./build.sh
 ```
 
-If any post-installation commands should be run, set the `POST_INSTALLATION_COMMANDS` variable in `.env`:
-
-```bash
-POST_INSTALLATION_COMMANDS="playwright install-deps, ls -la /"
-```
-
-Both variables can be combined in the `.env` file:
-
-```bash
-SYSTEM_DEPENDENCIES="tesseract-ocr, tesseract-ocr-eng, libtesseract-dev, libleptonica-dev, pkg-config"
-POST_INSTALLATION_COMMANDS="playwright install-deps, ls -la /"
-```
-
-
-
-### Starting the Container
-Now when we have an image with necessary libraries installed, we can start the container with the processor.
-
-Set the `ADDITIONAL_EXTENSION_PATHS` variable in your `.env` file to mount the example processor:
-
-```bash
-ADDITIONAL_EXTENSION_PATHS="./example/ParseDocument"
-```
-
-Then run the start script:
+3. Run the start script:
 
 ```bash
 ./start.sh
@@ -121,24 +79,23 @@ Password: 3egF2be993otE/xnGFUdR5bZq0AxKz0B
 Use these credentials to access NiFi: https://localhost:8443/nifi
 ```
 
-### Working with NiFi
-
 Access nifi on URL provided in the console output. By default, it will be http://localhost:8443/nifi
-Enter Username and Password as provided in the console output.
 
-Add FetchFile Processor with the following settings:
-- File to Fetch: /files/dummy.pdf
-- Leave other fields with their default values
+### Adding Python Extensions
 
-Add ParseDocument Processor with the following settings:
-- Input Format: PDF
-- Infer Table Structure: False
+Put your Python extensions into the `python_extensions` folder. Restart the playground:
 
-Wait some time until NiFi installs processor dependencies and starts processing the file.
+```bash
+./start.sh
+```
 
-> You can track dependencies installation progress in logs of the NiFi.
-> This can be done with the following command: `./logs.sh`
-> or with docker command: `docker compose logs -f`
+### Adding Java Extensions
+
+Put your `*.nar` files into the `nar_extensions` folder. Restart the playground:
+
+```bash
+./start.sh
+```
 
 ## Basic Usage
 
