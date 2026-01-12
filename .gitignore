@@ -16,6 +16,8 @@
 !env.example
 
 # ...and not these directories
+!docs/
+!docs/advanced_usage.md
 !example/
 !files/
 !files/dummy.pdf
