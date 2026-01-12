@@ -14,6 +14,7 @@ CLI_USERNAME="${NIFI_USERNAME:-}"
 CLI_PASSWORD="${NIFI_PASSWORD:-}"
 ADDITIONAL_PORT_MAPPINGS="${ADDITIONAL_PORT_MAPPINGS:-}"
 ADDITIONAL_EXTENSION_PATHS_STR="${ADDITIONAL_EXTENSION_PATHS:-}"
+ENVIRONMENT_VARIABLES="${ENVIRONMENT_VARIABLES:-}"
 
 # Parse ADDITIONAL_EXTENSION_PATHS from comma-separated string to array
 ADDITIONAL_EXTENSION_PATHS=()
@@ -75,12 +76,37 @@ cp docker-compose.yml docker-compose.tmp.yml
 TEMP_ENV_FILE=".env.tmp"
 rm -f "$TEMP_ENV_FILE"
 
-if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
-  # Create temporary env file to pass credentials to container safely
-  echo "SINGLE_USER_CREDENTIALS_USERNAME=$EFFECTIVE_USERNAME" > "$TEMP_ENV_FILE"
-  echo "SINGLE_USER_CREDENTIALS_PASSWORD=$EFFECTIVE_PASSWORD" >> "$TEMP_ENV_FILE"
+# Determine if we need an env file (for credentials or environment variables)
+NEED_ENV_FILE=false
+if [ "$USE_CUSTOM_CREDENTIALS" = true ] || [ -n "$ENVIRONMENT_VARIABLES" ]; then
+  NEED_ENV_FILE=true
+fi
+
+if [ "$NEED_ENV_FILE" = true ]; then
+  # Create temporary env file
+  > "$TEMP_ENV_FILE"
   
-  echo "Configuring container to use provided credentials..."
+  if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
+    # Add credentials to env file
+    echo "SINGLE_USER_CREDENTIALS_USERNAME=$EFFECTIVE_USERNAME" >> "$TEMP_ENV_FILE"
+    echo "SINGLE_USER_CREDENTIALS_PASSWORD=$EFFECTIVE_PASSWORD" >> "$TEMP_ENV_FILE"
+    echo "Configuring container to use provided credentials..."
+  fi
+  
+  # Add environment variables from ENVIRONMENT_VARIABLES
+  if [ -n "$ENVIRONMENT_VARIABLES" ]; then
+    echo "Adding environment variables to container..."
+    IFS=',' read -r -a __ENV_VARS <<< "$ENVIRONMENT_VARIABLES"
+    for env_var in "${__ENV_VARS[@]}"; do
+      # Trim whitespace
+      trimmed=$(echo "$env_var" | xargs)
+      if [ -n "$trimmed" ]; then
+        echo "$trimmed" >> "$TEMP_ENV_FILE"
+      fi
+    done
+  fi
+  
+  # Add env_file to docker-compose
   awk -v env_file="$TEMP_ENV_FILE" '
     { print }
     $0 ~ /container_name: liquid-playground/ {
