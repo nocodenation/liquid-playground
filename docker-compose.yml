@@ -8,3 +8,9 @@ services:
       - ./nar_extensions:/opt/nifi/nifi-current/nar_extensions:z
     ports:
       - "8443:8443"
+    networks:
+      - nocodenation_playground_network
+
+networks:
+  nocodenation_playground_network:
+    name: nocodenation_playground_network
