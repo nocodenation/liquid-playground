@@ -236,6 +236,10 @@ if [ -n "$ADDITIONAL_PORT_MAPPINGS" ]; then
   ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
 fi
 
+# Ensure shared network exists
+docker network inspect nocodenation_playground_network >/dev/null 2>&1 \
+  || docker network create nocodenation_playground_network
+
 # Start the container with the temporary docker-compose file
 echo "Starting the container..."
 docker compose -f docker-compose.tmp.yml up -d
