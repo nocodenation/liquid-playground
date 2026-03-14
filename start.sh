@@ -14,6 +14,14 @@ CLI_USERNAME="${NIFI_USERNAME:-}"
 CLI_PASSWORD="${NIFI_PASSWORD:-}"
 ADDITIONAL_PORT_MAPPINGS="${ADDITIONAL_PORT_MAPPINGS:-}"
 ADDITIONAL_EXTENSION_PATHS_STR="${ADDITIONAL_EXTENSION_PATHS:-}"
+OPENCODE_ENABLE="${OPENCODE_ENABLE:-false}"
+OPENCODE_SERVER_PORT="${OPENCODE_SERVER_PORT:-4096}"
+OPENCODE_SERVER_PASSWORD="${OPENCODE_SERVER_PASSWORD:-replace_me}"
+OPENCODE_MODEL="${OPENCODE_MODEL:-qwen3.5:9b}"
+OPENCODE_OLLAMA_HOST="${OPENCODE_OLLAMA_HOST:-http://ollama:11434}"
+OPENCODE_WORKING_DIR="${OPENCODE_WORKING_DIR:-/opt/nifi/nifi-current}"
+OPENCODE_ANTHROPIC_KEY="${OPENCODE_ANTHROPIC_KEY:-}"
+OPENCODE_OPENAI_KEY="${OPENCODE_OPENAI_KEY:-}"
 
 # Parse ADDITIONAL_EXTENSION_PATHS from comma-separated string to array
 ADDITIONAL_EXTENSION_PATHS=()
@@ -80,6 +88,9 @@ NEED_ENV_FILE=false
 if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
   NEED_ENV_FILE=true
 fi
+if [ "$OPENCODE_ENABLE" = "true" ]; then
+  NEED_ENV_FILE=true
+fi
 
 if [ "$NEED_ENV_FILE" = true ]; then
   # Create temporary env file
@@ -91,7 +102,20 @@ if [ "$NEED_ENV_FILE" = true ]; then
     echo "SINGLE_USER_CREDENTIALS_PASSWORD=$EFFECTIVE_PASSWORD" >> "$TEMP_ENV_FILE"
     echo "Configuring container to use provided credentials..."
   fi
-  
+
+  if [ "$OPENCODE_ENABLE" = "true" ]; then
+    # Add opencode env vars to env file
+    echo "OPENCODE_ENABLE=$OPENCODE_ENABLE" >> "$TEMP_ENV_FILE"
+    echo "OPENCODE_SERVER_PORT=$OPENCODE_SERVER_PORT" >> "$TEMP_ENV_FILE"
+    echo "OPENCODE_SERVER_PASSWORD=$OPENCODE_SERVER_PASSWORD" >> "$TEMP_ENV_FILE"
+    echo "OPENCODE_MODEL=$OPENCODE_MODEL" >> "$TEMP_ENV_FILE"
+    echo "OPENCODE_OLLAMA_HOST=$OPENCODE_OLLAMA_HOST" >> "$TEMP_ENV_FILE"
+    echo "OPENCODE_WORKING_DIR=$OPENCODE_WORKING_DIR" >> "$TEMP_ENV_FILE"
+    [ -n "$OPENCODE_ANTHROPIC_KEY" ] && echo "OPENCODE_ANTHROPIC_KEY=$OPENCODE_ANTHROPIC_KEY" >> "$TEMP_ENV_FILE"
+    [ -n "$OPENCODE_OPENAI_KEY" ] && echo "OPENCODE_OPENAI_KEY=$OPENCODE_OPENAI_KEY" >> "$TEMP_ENV_FILE"
+    echo "Configuring container to use opencode on port $OPENCODE_SERVER_PORT..."
+  fi
+
   # Add env_file to docker-compose
   awk -v env_file="$TEMP_ENV_FILE" '
     { print }
@@ -229,6 +253,20 @@ if [ -n "$ADDITIONAL_PORT_MAPPINGS" ]; then
     inserted==0 && $0 ~ /^[[:space:]]*- "8443:8443"$/ {
       print;
       printf "%s", insert;
+      inserted=1;
+      next
+    }
+    { print }
+  ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
+fi
+
+# If OPENCODE is enabled, add port mapping for opencode web server
+if [ "$OPENCODE_ENABLE" = "true" ]; then
+  echo "Adding opencode port mapping ($OPENCODE_SERVER_PORT:$OPENCODE_SERVER_PORT)..."
+  awk -v port="$OPENCODE_SERVER_PORT" '
+    inserted==0 && $0 ~ /^[[:space:]]*- "8443:8443"$/ {
+      print;
+      printf "      - \"%s:%s\"\n", port, port;
       inserted=1;
       next
     }

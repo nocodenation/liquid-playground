@@ -136,6 +136,25 @@ if [ -n "$RAW_ENVIRONMENT_VARIABLES" ]; then
     fi
 fi
 
+# Handle OPENCODE_ENABLE - inject opencode installation block into Dockerfile
+OPENCODE_ENABLE="${OPENCODE_ENABLE:-false}"
+OPENCODE_SERVER_PORT="${OPENCODE_SERVER_PORT:-4096}"
+
+if [ "$OPENCODE_ENABLE" = "true" ]; then
+    echo "OpenCode enabled - adding installation to Dockerfile..."
+    OPENCODE_INSTALL_BLOCK="RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && apt-get install -y nodejs && npm install -g opencode-ai\nEXPOSE $OPENCODE_SERVER_PORT\n"
+
+    awk -v block="$OPENCODE_INSTALL_BLOCK" '
+      {
+        print $0
+        if ($0 ~ /# OPENCODE_BLOCK/) {
+          n = split(block, lines, "\\n");
+          for (i = 1; i <= n; i++) if (length(lines[i]) > 0) print lines[i];
+        }
+      }
+    ' Dockerfile.tmp > Dockerfile.tmp.__new && mv Dockerfile.tmp.__new Dockerfile.tmp
+fi
+
 # Stop existing container if it's running
 docker compose down
 
