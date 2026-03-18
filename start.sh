@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Load environment variables from .env file if it exists
 if [ -f .env ]; then
@@ -280,45 +280,45 @@ docker network inspect nocodenation_playground_network >/dev/null 2>&1 \
 
 # Start the container with the temporary docker-compose file
 echo "Starting the container..."
-docker compose -f docker-compose.tmp.yml up -d
+docker compose -f docker-compose.tmp.yml up # -d
 
-# Wait for NiFi to start and extract credentials
-echo "Waiting for NiFi to start..."
-while true; do
-  # Check if the log contains the startup completion message
-  if docker compose -f docker-compose.tmp.yml logs | grep -q "org.apache.nifi.runtime.Application Started Application in"; then
-    echo ""
-    echo "NiFi has started successfully!"
+# # Wait for NiFi to start and extract credentials
+# echo "Waiting for NiFi to start..."
+# while true; do
+#   # Check if the log contains the startup completion message
+#   if docker compose -f docker-compose.tmp.yml logs | grep -q "org.apache.nifi.runtime.Application Started Application in"; then
+#     echo ""
+#     echo "NiFi has started successfully!"
 
-    if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
-      echo "Using credentials from environment variables:"
-      echo ""
-      echo "Username: $EFFECTIVE_USERNAME"
-      echo "Password: $EFFECTIVE_PASSWORD"
-      echo ""
-    else
-      # Generated
-      echo "Extracting generated credentials..."
-      echo ""
-      username=$(docker compose -f docker-compose.tmp.yml logs | grep "Generated Username" | tail -n 1 | sed -E 's/.*\[([^]]*)\].*/\1/')
-      password=$(docker compose -f docker-compose.tmp.yml logs | grep "Generated Password" | tail -n 1 | sed -E 's/.*\[([^]]*)\].*/\1/')
-      echo "Username: $username"
-      echo "Password: $password"
-      echo ""
-    fi
+#     if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
+#       echo "Using credentials from environment variables:"
+#       echo ""
+#       echo "Username: $EFFECTIVE_USERNAME"
+#       echo "Password: $EFFECTIVE_PASSWORD"
+#       echo ""
+#     else
+#       # Generated
+#       echo "Extracting generated credentials..."
+#       echo ""
+#       username=$(docker compose -f docker-compose.tmp.yml logs | grep "Generated Username" | tail -n 1 | sed -E 's/.*\[([^]]*)\].*/\1/')
+#       password=$(docker compose -f docker-compose.tmp.yml logs | grep "Generated Password" | tail -n 1 | sed -E 's/.*\[([^]]*)\].*/\1/')
+#       echo "Username: $username"
+#       echo "Password: $password"
+#       echo ""
+#     fi
 
-    echo "Use these credentials to access NiFi: https://localhost:8443/nifi"
+#     echo "Use these credentials to access NiFi: https://localhost:8443/nifi"
 
-    # Clean up the temporary files
-    rm docker-compose.tmp.yml
-    if [ -f "$TEMP_ENV_FILE" ]; then
-        rm "$TEMP_ENV_FILE"
-    fi
+#     # Clean up the temporary files
+#     rm docker-compose.tmp.yml
+#     if [ -f "$TEMP_ENV_FILE" ]; then
+#         rm "$TEMP_ENV_FILE"
+#     fi
 
-    break
-  fi
+#     break
+#   fi
 
-  # Wait for a moment before checking again
-  sleep 5
-  echo "Still waiting for NiFi to start..."
-done
+#   # Wait for a moment before checking again
+#   sleep 5
+#   echo "Still waiting for NiFi to start..."
+# done

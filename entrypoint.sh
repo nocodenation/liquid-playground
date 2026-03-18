@@ -29,12 +29,14 @@ fi
 if [ "${OPENCODE_ENABLE:-false}" = "true" ]; then
     echo "🤖 OpenCode enabled - starting opencode web..."
 
+    mkdir -p "/home/nifi/.config/opencode"
+
     OPENCODE_PORT="${OPENCODE_SERVER_PORT:-4096}"
     OPENCODE_OLLAMA_URL="${OPENCODE_OLLAMA_HOST:-http://ollama:11434}"
     OPENCODE_WORKDIR="${OPENCODE_WORKING_DIR:-/opt/nifi/nifi-current}"
 
     # Parse model: if it contains '/', use as-is (provider/model); otherwise assume ollama
-    _MODEL_RAW="${OPENCODE_MODEL:-qwen3.5:9b}"
+    _MODEL_RAW="${OPENCODE_MODEL:-llama3.1:8b}"
     case "$_MODEL_RAW" in
         */*)
             OPENCODE_FULL_MODEL="$_MODEL_RAW"
@@ -90,9 +92,9 @@ if [ "${OPENCODE_ENABLE:-false}" = "true" ]; then
     "mdns": false,
     "cors": ["https://localhost:8443"]
   }
-}\n' "$OPENCODE_FULL_MODEL" "$_PROVIDERS" "$OPENCODE_PORT" > "$OPENCODE_WORKDIR/opencode.json"
+}\n' "$OPENCODE_FULL_MODEL" "$_PROVIDERS" "$OPENCODE_PORT" > "/home/nifi/.config/opencode/opencode.json"
 
-    (cd "$OPENCODE_WORKDIR" && opencode web) &
+    opencode web &
     echo "✅ opencode web started on port $OPENCODE_PORT (workdir: $OPENCODE_WORKDIR)"
 fi
 
