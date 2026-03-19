@@ -276,7 +276,7 @@ if [ "$OPENCODE_ENABLE" = "true" ]; then
   # If OPENCODE_OLLAMA_HOST_IP is set, add extra_hosts mapping for the Ollama hostname
   if [ -n "$OPENCODE_OLLAMA_HOST_IP" ] && [ -n "$OPENCODE_OLLAMA_HOST" ]; then
     # Extract hostname from OPENCODE_OLLAMA_HOST (e.g., "http://dgx_spark:8201" -> "dgx_spark")
-    OLLAMA_HOSTNAME=$(echo "$OPENCODE_OLLAMA_HOST" | sed 's|^https\?://||' | cut -d: -f1 | cut -d/ -f1)
+    OLLAMA_HOSTNAME=$(echo "$OPENCODE_OLLAMA_HOST" | sed -E 's|^https?://||' | cut -d: -f1 | cut -d/ -f1)
     if [ -n "$OLLAMA_HOSTNAME" ]; then
       echo "Adding extra_hosts entry: $OLLAMA_HOSTNAME -> $OPENCODE_OLLAMA_HOST_IP"
       awk -v hostname="$OLLAMA_HOSTNAME" -v ip="$OPENCODE_OLLAMA_HOST_IP" '
@@ -327,7 +327,7 @@ while true; do
     echo "Use these credentials to access NiFi: https://localhost:8443/nifi"
 
     if [ "$OPENCODE_ENABLE" = "true" ]; then
-      echo "Access opencode at: https://localhost:$OPENCODE_SERVER_PORT"
+      echo "Access opencode at: http://localhost:$OPENCODE_SERVER_PORT"
     fi
 
     if [ "$DEBUG_MODE" != "true" ]; then
