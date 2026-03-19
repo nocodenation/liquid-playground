@@ -19,9 +19,9 @@ OPENCODE_SERVER_PORT="${OPENCODE_SERVER_PORT:-4096}"
 OPENCODE_SERVER_PASSWORD="${OPENCODE_SERVER_PASSWORD:-replace_me}"
 OPENCODE_MODEL="${OPENCODE_MODEL:-qwen3.5:9b}"
 OPENCODE_OLLAMA_HOST="${OPENCODE_OLLAMA_HOST:-http://ollama:11434}"
-OPENCODE_WORKING_DIR="${OPENCODE_WORKING_DIR:-/opt/nifi/nifi-current}"
 OPENCODE_ANTHROPIC_KEY="${OPENCODE_ANTHROPIC_KEY:-}"
 OPENCODE_OPENAI_KEY="${OPENCODE_OPENAI_KEY:-}"
+OPENCODE_OLLAMA_HOST_IP="${OPENCODE_OLLAMA_HOST_IP:-}"
 
 # Parse ADDITIONAL_EXTENSION_PATHS from comma-separated string to array
 ADDITIONAL_EXTENSION_PATHS=()
@@ -110,7 +110,6 @@ if [ "$NEED_ENV_FILE" = true ]; then
     echo "OPENCODE_SERVER_PASSWORD=$OPENCODE_SERVER_PASSWORD" >> "$TEMP_ENV_FILE"
     echo "OPENCODE_MODEL=$OPENCODE_MODEL" >> "$TEMP_ENV_FILE"
     echo "OPENCODE_OLLAMA_HOST=$OPENCODE_OLLAMA_HOST" >> "$TEMP_ENV_FILE"
-    echo "OPENCODE_WORKING_DIR=$OPENCODE_WORKING_DIR" >> "$TEMP_ENV_FILE"
     [ -n "$OPENCODE_ANTHROPIC_KEY" ] && echo "OPENCODE_ANTHROPIC_KEY=$OPENCODE_ANTHROPIC_KEY" >> "$TEMP_ENV_FILE"
     [ -n "$OPENCODE_OPENAI_KEY" ] && echo "OPENCODE_OPENAI_KEY=$OPENCODE_OPENAI_KEY" >> "$TEMP_ENV_FILE"
     echo "Configuring container to use opencode on port $OPENCODE_SERVER_PORT..."
@@ -274,51 +273,73 @@ if [ "$OPENCODE_ENABLE" = "true" ]; then
   ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
 fi
 
+# If OPENCODE_OLLAMA_HOST_IP is set, add extra_hosts mapping for the Ollama hostname
+if [ -n "$OPENCODE_OLLAMA_HOST_IP" ] && [ -n "$OPENCODE_OLLAMA_HOST" ]; then
+  # Extract hostname from OPENCODE_OLLAMA_HOST (e.g., "http://dgx_spark:8201" -> "dgx_spark")
+  OLLAMA_HOSTNAME=$(echo "$OPENCODE_OLLAMA_HOST" | sed 's|^https\?://||' | cut -d: -f1 | cut -d/ -f1)
+  if [ -n "$OLLAMA_HOSTNAME" ]; then
+    echo "Adding extra_hosts entry: $OLLAMA_HOSTNAME -> $OPENCODE_OLLAMA_HOST_IP"
+    awk -v hostname="$OLLAMA_HOSTNAME" -v ip="$OPENCODE_OLLAMA_HOST_IP" '
+      $0 ~ /container_name: liquid-playground/ {
+        print;
+        print "    extra_hosts:"
+        print "      - \"" hostname ":" ip "\""
+        next
+      }
+      { print }
+    ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
+  fi
+fi
+
 # Ensure shared network exists
 docker network inspect nocodenation_playground_network >/dev/null 2>&1 \
   || docker network create nocodenation_playground_network
 
 # Start the container with the temporary docker-compose file
 echo "Starting the container..."
-docker compose -f docker-compose.tmp.yml up # -d
+docker compose -f docker-compose.tmp.yml up -d
 
-# # Wait for NiFi to start and extract credentials
-# echo "Waiting for NiFi to start..."
-# while true; do
-#   # Check if the log contains the startup completion message
-#   if docker compose -f docker-compose.tmp.yml logs | grep -q "org.apache.nifi.runtime.Application Started Application in"; then
-#     echo ""
-#     echo "NiFi has started successfully!"
+ # Wait for NiFi to start and extract credentials
+ echo "Waiting for NiFi to start..."
+ while true; do
+   # Check if the log contains the startup completion message
+   if docker compose -f docker-compose.tmp.yml logs | grep -q "org.apache.nifi.runtime.Application Started Application in"; then
+     echo ""
+     echo "NiFi has started successfully!"
 
-#     if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
-#       echo "Using credentials from environment variables:"
-#       echo ""
-#       echo "Username: $EFFECTIVE_USERNAME"
-#       echo "Password: $EFFECTIVE_PASSWORD"
-#       echo ""
-#     else
-#       # Generated
-#       echo "Extracting generated credentials..."
-#       echo ""
-#       username=$(docker compose -f docker-compose.tmp.yml logs | grep "Generated Username" | tail -n 1 | sed -E 's/.*\[([^]]*)\].*/\1/')
-#       password=$(docker compose -f docker-compose.tmp.yml logs | grep "Generated Password" | tail -n 1 | sed -E 's/.*\[([^]]*)\].*/\1/')
-#       echo "Username: $username"
-#       echo "Password: $password"
-#       echo ""
-#     fi
+     if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
+       echo "Using credentials from environment variables:"
+       echo ""
+       echo "Username: $EFFECTIVE_USERNAME"
+       echo "Password: $EFFECTIVE_PASSWORD"
+       echo ""
+     else
+       # Generated
+       echo "Extracting generated credentials..."
+       echo ""
+       username=$(docker compose -f docker-compose.tmp.yml logs | grep "Generated Username" | tail -n 1 | sed -E 's/.*\[([^]]*)\].*/\1/')
+       password=$(docker compose -f docker-compose.tmp.yml logs | grep "Generated Password" | tail -n 1 | sed -E 's/.*\[([^]]*)\].*/\1/')
+       echo "Username: $username"
+       echo "Password: $password"
+       echo ""
+     fi
 
-#     echo "Use these credentials to access NiFi: https://localhost:8443/nifi"
+     echo "Use these credentials to access NiFi: https://localhost:8443/nifi"
 
-#     # Clean up the temporary files
-#     rm docker-compose.tmp.yml
-#     if [ -f "$TEMP_ENV_FILE" ]; then
-#         rm "$TEMP_ENV_FILE"
-#     fi
+     if [ "$OPENCODE_ENABLE" = "true" ]; then
+       echo "Access opencode at: https://localhost:$OPENCODE_SERVER_PORT"
+     fi
 
-#     break
-#   fi
+     # Clean up the temporary files
+     rm docker-compose.tmp.yml
+     if [ -f "$TEMP_ENV_FILE" ]; then
+         rm "$TEMP_ENV_FILE"
+     fi
 
-#   # Wait for a moment before checking again
-#   sleep 5
-#   echo "Still waiting for NiFi to start..."
-# done
+     break
+   fi
+
+   # Wait for a moment before checking again
+   sleep 5
+   echo "Still waiting for NiFi to start..."
+ done

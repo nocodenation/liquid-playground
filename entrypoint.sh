@@ -33,7 +33,6 @@ if [ "${OPENCODE_ENABLE:-false}" = "true" ]; then
 
     OPENCODE_PORT="${OPENCODE_SERVER_PORT:-4096}"
     OPENCODE_OLLAMA_URL="${OPENCODE_OLLAMA_HOST:-http://ollama:11434}"
-    OPENCODE_WORKDIR="${OPENCODE_WORKING_DIR:-/opt/nifi/nifi-current}"
 
     # Parse model: if it contains '/', use as-is (provider/model); otherwise assume ollama
     _MODEL_RAW="${OPENCODE_MODEL:-llama3.1:8b}"
@@ -49,15 +48,15 @@ if [ "${OPENCODE_ENABLE:-false}" = "true" ]; then
     esac
 
     # Build providers JSON block — ollama is always included
-    _PROVIDERS="    \"ollama\": {
+    _PROVIDERS="    \"llamacpp\": {
       \"npm\": \"@ai-sdk/openai-compatible\",
-      \"name\": \"Ollama\",
+      \"name\": \"llamacpp\",
       \"options\": {
         \"baseURL\": \"${OPENCODE_OLLAMA_URL}/v1\"
       },
       \"models\": {
         \"${OPENCODE_OLLAMA_MODEL}\": {
-          \"name\": \"Ollama Model\"
+          \"name\": \"llamacpp: ${OPENCODE_OLLAMA_MODEL}\"
         }
       }
     }"
@@ -95,7 +94,7 @@ if [ "${OPENCODE_ENABLE:-false}" = "true" ]; then
 }\n' "$OPENCODE_FULL_MODEL" "$_PROVIDERS" "$OPENCODE_PORT" > "/home/nifi/.config/opencode/opencode.json"
 
     opencode web &
-    echo "✅ opencode web started on port $OPENCODE_PORT (workdir: $OPENCODE_WORKDIR)"
+    echo "✅ opencode web started on port $OPENCODE_PORT"
 fi
 
 # Execute the original NiFi start script
