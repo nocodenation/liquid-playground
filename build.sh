@@ -12,6 +12,7 @@ fi
 SYSTEM_DEPENDENCIES="${SYSTEM_DEPENDENCIES:-}"
 POST_INSTALLATION_COMMANDS="${POST_INSTALLATION_COMMANDS:-}"
 PERSIST_NIFI_STATE="${PERSIST_NIFI_STATE:-false}"
+DEBUG_MODE="${DEBUG_MODE:-false}"
 
 # Convert PERSIST_NIFI_STATE to boolean-like behavior
 if [ "$PERSIST_NIFI_STATE" = "true" ]; then
@@ -172,7 +173,9 @@ echo "Building nocodenation/liquid-playground:latest for $ARCH"
 docker build -t nocodenation/liquid-playground:latest -f Dockerfile.tmp --platform $ARCH .
 
 # Clean up the temporary Dockerfile
-rm Dockerfile.tmp
+if [ "$DEBUG_MODE" != "true" ]; then
+  rm Dockerfile.tmp
+fi
 
 # Handle PERSIST_NIFI_STATE - create state folder and copy directories from image
 if [ "$PERSIST_NIFI_STATE" = true ]; then
