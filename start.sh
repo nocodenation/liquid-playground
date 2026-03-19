@@ -271,26 +271,25 @@ if [ "$OPENCODE_ENABLE" = "true" ]; then
     }
     { print }
   ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
-fi
 
-# If OPENCODE_OLLAMA_HOST_IP is set, add extra_hosts mapping for the Ollama hostname
-if [ -n "$OPENCODE_OLLAMA_HOST_IP" ] && [ -n "$OPENCODE_OLLAMA_HOST" ]; then
-  # Extract hostname from OPENCODE_OLLAMA_HOST (e.g., "http://dgx_spark:8201" -> "dgx_spark")
-  OLLAMA_HOSTNAME=$(echo "$OPENCODE_OLLAMA_HOST" | sed 's|^https\?://||' | cut -d: -f1 | cut -d/ -f1)
-  if [ -n "$OLLAMA_HOSTNAME" ]; then
-    echo "Adding extra_hosts entry: $OLLAMA_HOSTNAME -> $OPENCODE_OLLAMA_HOST_IP"
-    awk -v hostname="$OLLAMA_HOSTNAME" -v ip="$OPENCODE_OLLAMA_HOST_IP" '
-      $0 ~ /container_name: liquid-playground/ {
-        print;
-        print "    extra_hosts:"
-        print "      - \"" hostname ":" ip "\""
-        next
-      }
-      { print }
-    ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
+  # If OPENCODE_OLLAMA_HOST_IP is set, add extra_hosts mapping for the Ollama hostname
+  if [ -n "$OPENCODE_OLLAMA_HOST_IP" ] && [ -n "$OPENCODE_OLLAMA_HOST" ]; then
+    # Extract hostname from OPENCODE_OLLAMA_HOST (e.g., "http://dgx_spark:8201" -> "dgx_spark")
+    OLLAMA_HOSTNAME=$(echo "$OPENCODE_OLLAMA_HOST" | sed 's|^https\?://||' | cut -d: -f1 | cut -d/ -f1)
+    if [ -n "$OLLAMA_HOSTNAME" ]; then
+      echo "Adding extra_hosts entry: $OLLAMA_HOSTNAME -> $OPENCODE_OLLAMA_HOST_IP"
+      awk -v hostname="$OLLAMA_HOSTNAME" -v ip="$OPENCODE_OLLAMA_HOST_IP" '
+        $0 ~ /container_name: liquid-playground/ {
+          print;
+          print "    extra_hosts:"
+          print "      - \"" hostname ":" ip "\""
+          next
+        }
+        { print }
+      ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
+    fi
   fi
 fi
-
 # Ensure shared network exists
 docker network inspect nocodenation_playground_network >/dev/null 2>&1 \
   || docker network create nocodenation_playground_network
