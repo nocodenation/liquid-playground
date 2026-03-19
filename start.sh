@@ -128,6 +128,22 @@ fi
 
 # Add persistence volume mounts if PERSIST_NIFI_STATE is true
 if [ "$PERSIST_NIFI_STATE" = true ]; then
+  echo "Preparing nifi_state directories..."
+  NIFI_DIRS=(conf database_repository flowfile_repository content_repository provenance_repository state)
+  NIFI_IMAGE=$(grep 'image:' docker-compose.yml | head -1 | awk '{print $2}')
+  for dir in "${NIFI_DIRS[@]}"; do
+    HOST_DIR="./nifi_state/$dir"
+    if [ ! -d "$HOST_DIR" ]; then
+      mkdir -p "$HOST_DIR"
+      echo "Copying /opt/nifi/nifi-current/$dir from image..."
+      docker run --rm \
+        -v "$(pwd)/nifi_state/$dir:/host_target" \
+        --entrypoint sh \
+        "$NIFI_IMAGE" \
+        -c "cp -a /opt/nifi/nifi-current/$dir/. /host_target/ 2>/dev/null || true"
+    fi
+  done
+
   echo "Adding persistence volume mounts..."
   awk '
     { print }
