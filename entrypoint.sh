@@ -93,6 +93,12 @@ if [ "${OPENCODE_ENABLE:-false}" = "true" ]; then
   }
 }\n' "$OPENCODE_FULL_MODEL" "$_PROVIDERS" "$OPENCODE_PORT" > "/home/nifi/.config/opencode/opencode.json"
 
+    if [ -n "${OPENCODE_PASSWORD}" ]; then
+      export OPENCODE_SERVER_PASSWORD="${OPENCODE_PASSWORD}"
+    fi
+    if [ -n "${OPENCODE_USERNAME}" ]; then
+      export OPENCODE_SERVER_USERNAME="${OPENCODE_USERNAME}"
+    fi
     opencode web &
     echo "✅ opencode web started on port $OPENCODE_PORT"
 fi

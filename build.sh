@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Colors
+ORANGE='\033[38;5;214m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
 # Load environment variables from .env file if it exists
 if [ -f .env ]; then
     # Export variables from .env file, ignoring comments and empty lines
@@ -54,11 +59,11 @@ if [ -n "$NIFI_BASE_IMAGE" ]; then
         if [ $PULL_EXIT -ne 0 ]; then
             if echo "$PULL_OUTPUT" | grep -qiE 'unauthorized|401|authentication required|no basic auth credentials|authorization failed|pull access denied'; then
                 echo "Authentication required for $REGISTRY. Please log in:"
-                docker login "$REGISTRY" || { echo "ERROR: Login failed. Cannot proceed."; exit 1; }
+                docker login "$REGISTRY" || { echo -e "${RED}ERROR: Login failed. Cannot proceed.${NC}"; exit 1; }
                 # Retry pull after login
-                docker pull "$NIFI_BASE_IMAGE" || { echo "ERROR: Still cannot pull image after login. Aborting."; exit 1; }
+                docker pull "$NIFI_BASE_IMAGE" || { echo -e "${RED}ERROR: Still cannot pull image after login. Aborting.${NC}"; exit 1; }
             else
-                echo "ERROR: Failed to pull base image:"
+                echo -e "${RED}ERROR: Failed to pull base image:${NC}"
                 echo "$PULL_OUTPUT"
                 exit 1
             fi
