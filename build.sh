@@ -13,6 +13,7 @@ SYSTEM_DEPENDENCIES="${SYSTEM_DEPENDENCIES:-}"
 POST_INSTALLATION_COMMANDS="${POST_INSTALLATION_COMMANDS:-}"
 PERSIST_NIFI_STATE="${PERSIST_NIFI_STATE:-false}"
 DEBUG_MODE="${DEBUG_MODE:-false}"
+NIFI_BASE_IMAGE="${NIFI_BASE_IMAGE:-}"
 
 # Convert PERSIST_NIFI_STATE to boolean-like behavior
 if [ "$PERSIST_NIFI_STATE" = "true" ]; then
@@ -37,6 +38,33 @@ fi
 
 # Create a temporary copy of the Dockerfile
 cp Dockerfile Dockerfile.tmp
+
+# If NIFI_BASE_IMAGE is set, replace the FROM line in the temporary Dockerfile
+if [ -n "$NIFI_BASE_IMAGE" ]; then
+    echo "Using base image: $NIFI_BASE_IMAGE"
+    awk -v img="$NIFI_BASE_IMAGE" 'NR==1 && /^FROM / { print "FROM " img; next } { print }' Dockerfile.tmp > Dockerfile.tmp.__new && mv Dockerfile.tmp.__new Dockerfile.tmp
+
+    # Extract registry hostname (everything before the first slash, if it contains a dot or colon)
+    REGISTRY=$(echo "$NIFI_BASE_IMAGE" | cut -d/ -f1)
+    if echo "$REGISTRY" | grep -qE '[\.\:]'; then
+        # Check if we can pull the image; if unauthorized, prompt for login
+        echo "Verifying access to $REGISTRY..."
+        PULL_OUTPUT=$(docker pull "$NIFI_BASE_IMAGE" 2>&1)
+        PULL_EXIT=$?
+        if [ $PULL_EXIT -ne 0 ]; then
+            if echo "$PULL_OUTPUT" | grep -qiE 'unauthorized|401|authentication required|no basic auth credentials|authorization failed|pull access denied'; then
+                echo "Authentication required for $REGISTRY. Please log in:"
+                docker login "$REGISTRY" || { echo "ERROR: Login failed. Cannot proceed."; exit 1; }
+                # Retry pull after login
+                docker pull "$NIFI_BASE_IMAGE" || { echo "ERROR: Still cannot pull image after login. Aborting."; exit 1; }
+            else
+                echo "ERROR: Failed to pull base image:"
+                echo "$PULL_OUTPUT"
+                exit 1
+            fi
+        fi
+    fi
+fi
 
 # If additional packages are provided, append them to the apt-get install line
 if [ -n "$ADDITIONAL_PACKAGES_STR" ]; then
