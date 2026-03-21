@@ -56,7 +56,11 @@ if [ "${OPENCODE_ENABLE:-false}" = "true" ]; then
       },
       \"models\": {
         \"${OPENCODE_OLLAMA_MODEL}\": {
-          \"name\": \"llamacpp: ${OPENCODE_OLLAMA_MODEL}\"
+          \"name\": \"llamacpp: ${OPENCODE_OLLAMA_MODEL}\",
+          \"modalities\": {
+            \"input\": [\"text\", \"image\"],
+            \"output\": [\"text\"]
+          }
         }
       }
     }"
