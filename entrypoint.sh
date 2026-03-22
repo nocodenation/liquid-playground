@@ -103,8 +103,8 @@ if [ "${OPENCODE_ENABLE:-false}" = "true" ]; then
     if [ -n "${OPENCODE_USERNAME}" ]; then
       export OPENCODE_SERVER_USERNAME="${OPENCODE_USERNAME}"
     fi
-    opencode web &
-    echo "✅ opencode web started on port $OPENCODE_PORT"
+    opencode web > /tmp/opencode.log 2>&1 &
+    echo "✅ opencode web started on port $OPENCODE_PORT (log: /tmp/opencode.log)"
 fi
 
 # Execute the original NiFi start script
