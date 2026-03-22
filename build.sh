@@ -1,4 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+# Colors
+ORANGE='\033[38;5;214m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 
 # Load environment variables from .env file if it exists
 if [ -f .env ]; then
@@ -12,6 +17,8 @@ fi
 SYSTEM_DEPENDENCIES="${SYSTEM_DEPENDENCIES:-}"
 POST_INSTALLATION_COMMANDS="${POST_INSTALLATION_COMMANDS:-}"
 PERSIST_NIFI_STATE="${PERSIST_NIFI_STATE:-false}"
+DEBUG_MODE="${DEBUG_MODE:-false}"
+NIFI_BASE_IMAGE="${NIFI_BASE_IMAGE:-}"
 
 # Convert PERSIST_NIFI_STATE to boolean-like behavior
 if [ "$PERSIST_NIFI_STATE" = "true" ]; then
@@ -36,6 +43,33 @@ fi
 
 # Create a temporary copy of the Dockerfile
 cp Dockerfile Dockerfile.tmp
+
+# If NIFI_BASE_IMAGE is set, replace the FROM line in the temporary Dockerfile
+if [ -n "$NIFI_BASE_IMAGE" ]; then
+    echo "Using base image: $NIFI_BASE_IMAGE"
+    awk -v img="$NIFI_BASE_IMAGE" 'NR==1 && /^FROM / { print "FROM " img; next } { print }' Dockerfile.tmp > Dockerfile.tmp.__new && mv Dockerfile.tmp.__new Dockerfile.tmp
+
+    # Extract registry hostname (everything before the first slash, if it contains a dot or colon)
+    REGISTRY=$(echo "$NIFI_BASE_IMAGE" | cut -d/ -f1)
+    if echo "$REGISTRY" | grep -qE '[\.\:]'; then
+        # Check if we can pull the image; if unauthorized, prompt for login
+        echo "Verifying access to $REGISTRY..."
+        PULL_OUTPUT=$(docker pull "$NIFI_BASE_IMAGE" 2>&1)
+        PULL_EXIT=$?
+        if [ $PULL_EXIT -ne 0 ]; then
+            if echo "$PULL_OUTPUT" | grep -qiE 'unauthorized|401|authentication required|no basic auth credentials|authorization failed|pull access denied'; then
+                echo "Authentication required for $REGISTRY. Please log in:"
+                docker login "$REGISTRY" || { echo -e "${RED}ERROR: Login failed. Cannot proceed.${NC}"; exit 1; }
+                # Retry pull after login
+                docker pull "$NIFI_BASE_IMAGE" || { echo -e "${RED}ERROR: Still cannot pull image after login. Aborting.${NC}"; exit 1; }
+            else
+                echo -e "${RED}ERROR: Failed to pull base image:${NC}"
+                echo "$PULL_OUTPUT"
+                exit 1
+            fi
+        fi
+    fi
+fi
 
 # If additional packages are provided, append them to the apt-get install line
 if [ -n "$ADDITIONAL_PACKAGES_STR" ]; then
@@ -136,6 +170,25 @@ if [ -n "$RAW_ENVIRONMENT_VARIABLES" ]; then
     fi
 fi
 
+# Handle OPENCODE_ENABLE - inject opencode installation block into Dockerfile
+OPENCODE_ENABLE="${OPENCODE_ENABLE:-false}"
+OPENCODE_SERVER_PORT="${OPENCODE_SERVER_PORT:-4096}"
+
+if [ "$OPENCODE_ENABLE" = "true" ]; then
+    echo "OpenCode enabled - adding installation to Dockerfile..."
+    OPENCODE_INSTALL_BLOCK="RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && apt-get install -y nodejs && npm install -g opencode-ai\nEXPOSE $OPENCODE_SERVER_PORT\n"
+
+    awk -v block="$OPENCODE_INSTALL_BLOCK" '
+      {
+        print $0
+        if ($0 ~ /# OPENCODE_BLOCK/) {
+          n = split(block, lines, "\\n");
+          for (i = 1; i <= n; i++) if (length(lines[i]) > 0) print lines[i];
+        }
+      }
+    ' Dockerfile.tmp > Dockerfile.tmp.__new && mv Dockerfile.tmp.__new Dockerfile.tmp
+fi
+
 # Stop existing container if it's running
 docker compose down
 
@@ -153,7 +206,9 @@ echo "Building nocodenation/liquid-playground:latest for $ARCH"
 docker build -t nocodenation/liquid-playground:latest -f Dockerfile.tmp --platform $ARCH .
 
 # Clean up the temporary Dockerfile
-rm Dockerfile.tmp
+if [ "$DEBUG_MODE" != "true" ]; then
+  rm Dockerfile.tmp
+fi
 
 # Handle PERSIST_NIFI_STATE - create state folder and copy directories from image
 if [ "$PERSIST_NIFI_STATE" = true ]; then

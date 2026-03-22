@@ -1,4 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+# Colors
+ORANGE='\033[38;5;214m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 
 # Load environment variables from .env file if it exists
 if [ -f .env ]; then
@@ -14,6 +19,16 @@ CLI_USERNAME="${NIFI_USERNAME:-}"
 CLI_PASSWORD="${NIFI_PASSWORD:-}"
 ADDITIONAL_PORT_MAPPINGS="${ADDITIONAL_PORT_MAPPINGS:-}"
 ADDITIONAL_EXTENSION_PATHS_STR="${ADDITIONAL_EXTENSION_PATHS:-}"
+OPENCODE_ENABLE="${OPENCODE_ENABLE:-false}"
+OPENCODE_SERVER_PORT="${OPENCODE_SERVER_PORT:-4096}"
+OPENCODE_PASSWORD="${OPENCODE_PASSWORD:-}"
+OPENCODE_MODEL="${OPENCODE_MODEL:-qwen3.5:9b}"
+OPENCODE_OLLAMA_HOST="${OPENCODE_OLLAMA_HOST:-http://ollama:11434}"
+OPENCODE_ANTHROPIC_KEY="${OPENCODE_ANTHROPIC_KEY:-}"
+OPENCODE_OPENAI_KEY="${OPENCODE_OPENAI_KEY:-}"
+OPENCODE_OLLAMA_HOST_IP="${OPENCODE_OLLAMA_HOST_IP:-}"
+OPENCODE_USERNAME="${OPENCODE_USERNAME:-}"
+DEBUG_MODE="${DEBUG_MODE:-false}"
 
 # Parse ADDITIONAL_EXTENSION_PATHS from comma-separated string to array
 ADDITIONAL_EXTENSION_PATHS=()
@@ -46,11 +61,11 @@ if [ -n "$CLI_USERNAME" ] && [ -n "$CLI_PASSWORD" ]; then
         USE_CUSTOM_CREDENTIALS=true
         echo "Using credentials provided via environment variables."
     else
-        echo "WARNING: Environment variable password is too short (<12 chars). NiFi would reject it."
-        echo "         Ignoring environment credentials."
+        echo -e "${ORANGE}WARNING: Environment variable password is too short (<12 chars). NiFi would reject it.${NC}"
+        echo -e "${ORANGE}         Ignoring environment credentials.${NC}"
     fi
 elif [ -n "$CLI_USERNAME" ] || [ -n "$CLI_PASSWORD" ]; then
-    echo "WARNING: Both NIFI_USERNAME and NIFI_PASSWORD must be provided via environment. Ignoring partial input."
+    echo -e "${ORANGE}WARNING: Both NIFI_USERNAME and NIFI_PASSWORD must be provided via environment. Ignoring partial input.${NC}"
 fi
 
 if [ "$USE_CUSTOM_CREDENTIALS" = false ]; then
@@ -80,6 +95,9 @@ NEED_ENV_FILE=false
 if [ "$USE_CUSTOM_CREDENTIALS" = true ]; then
   NEED_ENV_FILE=true
 fi
+if [ "$OPENCODE_ENABLE" = "true" ]; then
+  NEED_ENV_FILE=true
+fi
 
 if [ "$NEED_ENV_FILE" = true ]; then
   # Create temporary env file
@@ -91,7 +109,20 @@ if [ "$NEED_ENV_FILE" = true ]; then
     echo "SINGLE_USER_CREDENTIALS_PASSWORD=$EFFECTIVE_PASSWORD" >> "$TEMP_ENV_FILE"
     echo "Configuring container to use provided credentials..."
   fi
-  
+
+  if [ "$OPENCODE_ENABLE" = "true" ]; then
+    # Add opencode env vars to env file
+    echo "OPENCODE_ENABLE=$OPENCODE_ENABLE" >> "$TEMP_ENV_FILE"
+    echo "OPENCODE_SERVER_PORT=$OPENCODE_SERVER_PORT" >> "$TEMP_ENV_FILE"
+    echo "OPENCODE_PASSWORD=$OPENCODE_PASSWORD" >> "$TEMP_ENV_FILE"
+    echo "OPENCODE_MODEL=$OPENCODE_MODEL" >> "$TEMP_ENV_FILE"
+    echo "OPENCODE_OLLAMA_HOST=$OPENCODE_OLLAMA_HOST" >> "$TEMP_ENV_FILE"
+    [ -n "$OPENCODE_ANTHROPIC_KEY" ] && echo "OPENCODE_ANTHROPIC_KEY=$OPENCODE_ANTHROPIC_KEY" >> "$TEMP_ENV_FILE"
+    [ -n "$OPENCODE_OPENAI_KEY" ] && echo "OPENCODE_OPENAI_KEY=$OPENCODE_OPENAI_KEY" >> "$TEMP_ENV_FILE"
+    [ -n "$OPENCODE_USERNAME" ] && echo "OPENCODE_USERNAME=$OPENCODE_USERNAME" >> "$TEMP_ENV_FILE"
+    echo "Configuring container to use opencode on port $OPENCODE_SERVER_PORT..."
+  fi
+
   # Add env_file to docker-compose
   awk -v env_file="$TEMP_ENV_FILE" '
     { print }
@@ -144,7 +175,7 @@ if [ ${#ADDITIONAL_EXTENSION_PATHS[@]} -gt 0 ]; then
         NAR_MOUNTS+="      - ${path}:/opt/nifi/nifi-current/lib/${basename}:z\n"
         echo "  - Mounting NAR file: $basename"
       else
-        echo "  - WARNING: Skipping unsupported file type: $path"
+        echo -e "  - ${ORANGE}WARNING: Skipping unsupported file type: $path${NC}"
       fi
     elif [ -d "$path" ]; then
       # It's a directory - check contents
@@ -177,10 +208,10 @@ if [ ${#ADDITIONAL_EXTENSION_PATHS[@]} -gt 0 ]; then
           fi
         done
       else
-        echo "  - WARNING: Skipping directory with no Python or NAR files: $path"
+        echo -e "  - ${ORANGE}WARNING: Skipping directory with no Python or NAR files: $path${NC}"
       fi
     else
-      echo "  - WARNING: Path not found: $path"
+      echo -e "  - ${ORANGE}WARNING: Path not found: $path${NC}"
     fi
   done
 
@@ -236,6 +267,37 @@ if [ -n "$ADDITIONAL_PORT_MAPPINGS" ]; then
   ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
 fi
 
+# If OPENCODE is enabled, add port mapping for opencode web server
+if [ "$OPENCODE_ENABLE" = "true" ]; then
+  echo "Adding opencode port mapping ($OPENCODE_SERVER_PORT:$OPENCODE_SERVER_PORT)..."
+  awk -v port="$OPENCODE_SERVER_PORT" '
+    inserted==0 && $0 ~ /^[[:space:]]*- "8443:8443"$/ {
+      print;
+      printf "      - \"%s:%s\"\n", port, port;
+      inserted=1;
+      next
+    }
+    { print }
+  ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
+
+  # If OPENCODE_OLLAMA_HOST_IP is set, add extra_hosts mapping for the Ollama hostname
+  if [ -n "$OPENCODE_OLLAMA_HOST_IP" ] && [ -n "$OPENCODE_OLLAMA_HOST" ]; then
+    # Extract hostname from OPENCODE_OLLAMA_HOST (e.g., "http://dgx_spark:8201" -> "dgx_spark")
+    OLLAMA_HOSTNAME=$(echo "$OPENCODE_OLLAMA_HOST" | sed -E 's|^https?://||' | cut -d: -f1 | cut -d/ -f1)
+    if [ -n "$OLLAMA_HOSTNAME" ]; then
+      echo "Adding extra_hosts entry: $OLLAMA_HOSTNAME -> $OPENCODE_OLLAMA_HOST_IP"
+      awk -v hostname="$OLLAMA_HOSTNAME" -v ip="$OPENCODE_OLLAMA_HOST_IP" '
+        $0 ~ /container_name: liquid-playground/ {
+          print;
+          print "    extra_hosts:"
+          print "      - \"" hostname ":" ip "\""
+          next
+        }
+        { print }
+      ' docker-compose.tmp.yml > docker-compose.tmp.yml.new && mv docker-compose.tmp.yml.new docker-compose.tmp.yml
+    fi
+  fi
+fi
 # Ensure shared network exists
 docker network inspect nocodenation_playground_network >/dev/null 2>&1 \
   || docker network create nocodenation_playground_network
@@ -271,10 +333,16 @@ while true; do
 
     echo "Use these credentials to access NiFi: https://localhost:8443/nifi"
 
-    # Clean up the temporary files
-    rm docker-compose.tmp.yml
-    if [ -f "$TEMP_ENV_FILE" ]; then
+    if [ "$OPENCODE_ENABLE" = "true" ]; then
+      echo "Access opencode at: http://localhost:$OPENCODE_SERVER_PORT"
+    fi
+
+    if [ "$DEBUG_MODE" != "true" ]; then
+      # Clean up the temporary files
+      rm docker-compose.tmp.yml
+      if [ -f "$TEMP_ENV_FILE" ]; then
         rm "$TEMP_ENV_FILE"
+      fi
     fi
 
     break
